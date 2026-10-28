@@ -27,5 +27,8 @@ A static page where a student builds a 2-week spaced review calendar, then print
 - More than 3 reviews per lesson; reviews continuing after a test; "struggled → review sooner".
 - Exact hours / time-blocking (session 4).
 
+## Updating
+After changing any file in `css/` or `js/`, raise the `?v=` number on every link in `index.html` (e.g. `?v=2` → `?v=3`). Browsers then load the new files right away instead of a cached copy.
+
 ## Deploy (GitHub Pages)
 Push this folder to a GitHub repository, then Settings → Pages → Deploy from branch → `main` / root. Optional custom domain such as `calendar.charte.ge` (add a CNAME record at the DNS provider).

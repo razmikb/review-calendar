@@ -151,7 +151,10 @@ window.STRINGS = {
   },
 
   ka: {
-    // Draft: weekday names only. Everything else falls back to English until translated.
+    appTitle: 'გამეორების კალენდარი',
+    tagline: 'წაიკითხე — სწავლისთვის. გაიხსენე — დამახსოვრებისთვის. გადაიკითხე — განმტკიცებისთვის.',
+    langLabel: 'ენა',
+
     weekdaysShort: ['ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ', 'კვი'],
     weekdaysLong: ['ორშაბათი', 'სამშაბათი', 'ოთხშაბათი', 'ხუთშაბათი', 'პარასკევი', 'შაბათი', 'კვირა'],
 
