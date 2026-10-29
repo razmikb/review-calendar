@@ -2,15 +2,22 @@
  * Draws the printable 2-week calendar.
  * layout() turns a plan into a list of drawing operations; toSVG() and toCanvas() paint the same list,
  * so print/PDF and the PNG image always match.
- * Box types are told apart without colour (black-and-white printers):
- *   class = dashed outline, review = solid outline + tick box, test prep = heavy outline, test = filled black.
+ * Each box type has its own colour, and its shape still tells it apart on black-and-white printers:
+ *   class = blue dashed outline, review = green outline + tick box, test prep = heavy orange outline, test = filled red.
  */
 (function () {
   'use strict';
 
   var W = 1485, H = 1050;            // A4 landscape at 5 units per mm
   var FONT = '"Noto Sans Georgian", "Noto Sans", system-ui, sans-serif';
-  var INK = '#111111', GREY = '#555555', TINT = '#efefef', OFF = '#e2e2e2', WHITE = '#ffffff';
+  var INK = '#111111', GREY = '#555555', OFF = '#e2e2e2', WHITE = '#ffffff';
+  // Colours per box type: outline, fill, text. Dark enough to read, light fills to save ink.
+  var C = {
+    cls: { stroke: '#3f6aa8', fill: '#eaf1fb', text: '#1b365d' },
+    review: { stroke: '#2e7d32', fill: '#e4f3e5', text: INK },
+    prep: { stroke: '#e07b00', fill: '#fff2dd', text: INK },
+    test: { fill: '#c62828', text: WHITE }
+  };
 
   function layout(o, measure) {
     var t = o.t, plan = o.plan, blank = !plan;
@@ -96,15 +103,16 @@
       shown.forEach(function (it, k) {
         var x = cx + pad, y = cy + pad + k * step;
         if (it.type === 'test') {
-          rect(x, y, iw, ih, { fill: INK, r: 2 });
-          text(x + 6, y + 14, it.label, { size: 13, bold: true, fill: WHITE, maxW: iw - 10 });
+          rect(x, y, iw, ih, { fill: C.test.fill, r: 2 });
+          text(x + 6, y + 14, it.label, { size: 13, bold: true, fill: C.test.text, maxW: iw - 10 });
         } else if (it.type === 'class') {
-          rect(x, y, iw, ih, { stroke: '#333333', sw: 1, dash: [4, 3], r: 2 });
-          text(x + 6, y + 14, it.label, { size: 13, maxW: iw - 10 });
+          rect(x, y, iw, ih, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
+          text(x + 6, y + 14, it.label, { size: 13, fill: C.cls.text, maxW: iw - 10 });
         } else {
-          rect(x, y, iw, ih, { stroke: INK, sw: it.prep ? 3 : 1.3, fill: it.prep ? WHITE : TINT, r: 2 });
+          var c = it.prep ? C.prep : C.review;
+          rect(x, y, iw, ih, { stroke: c.stroke, sw: it.prep ? 3 : 1.5, fill: c.fill, r: 2 });
           rect(x + 5, y + 4, 11, 11, { stroke: INK, sw: 1.2, fill: WHITE });
-          text(x + 21, y + 14, it.label, { size: 13, bold: it.prep, maxW: iw - 25 });
+          text(x + 21, y + 14, it.label, { size: 13, bold: it.prep, fill: c.text, maxW: iw - 25 });
         }
       });
       if (shown.length < items.length) {
@@ -128,10 +136,10 @@
     var ly = gridTop + 2 * GH + gap + 14;
     var lx2 = M, sw = 34;
     function legendItem(kind, label) {
-      if (kind === 'class') rect(lx2, ly, sw, 18, { stroke: '#333333', sw: 1, dash: [4, 3], r: 2 });
-      if (kind === 'review') { rect(lx2, ly, sw, 18, { stroke: INK, sw: 1.3, fill: TINT, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
-      if (kind === 'prep') { rect(lx2, ly, sw, 18, { stroke: INK, sw: 3, fill: WHITE, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
-      if (kind === 'test') rect(lx2, ly, sw, 18, { fill: INK, r: 2 });
+      if (kind === 'class') rect(lx2, ly, sw, 18, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
+      if (kind === 'review') { rect(lx2, ly, sw, 18, { stroke: C.review.stroke, sw: 1.5, fill: C.review.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
+      if (kind === 'prep') { rect(lx2, ly, sw, 18, { stroke: C.prep.stroke, sw: 3, fill: C.prep.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
+      if (kind === 'test') rect(lx2, ly, sw, 18, { fill: C.test.fill, r: 2 });
       text(lx2 + sw + 8, ly + 14, label, { size: 14 });
       lx2 += sw + 8 + measure(label, 14, false) + 30;
     }

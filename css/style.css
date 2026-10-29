@@ -211,7 +211,7 @@ details.why p { margin-top: 6px; font-size: 0.9rem; color: var(--muted); }
 /* Print: only the calendar, A4 landscape */
 @media print {
   @page { size: A4 landscape; margin: 0; }
-  html, body { background: #fff; padding: 0; }
+  html, body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #app { display: none !important; }
   #print-root { display: block !important; }
   #print-root svg { display: block; width: 297mm; height: 209mm; }
