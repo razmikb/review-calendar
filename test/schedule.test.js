@@ -3,7 +3,7 @@
 var assert = require('assert');
 var S = require('../js/schedule.js');
 
-var START = '2026-10-29'; // Thursday: the calendar starts Mon 26 Oct, days 0-2 are before the start
+var START = '2026-10-29'; // Thursday: calendar Mon 26 Oct - Sun 15 Nov, planned days 3-16 (29 Oct - 11 Nov)
 function tt(map) { // map: { 0: {m:'Bio'} } Mon=0
   var t = {};
   for (var w = 0; w < 7; w++) t[w] = Object.assign({ m: '', a: '', e: '' }, map[w] || {});
@@ -20,21 +20,23 @@ function daysOf(list) { return list.map(function (b) { return b.day; }); }
 var passed = 0;
 function test(name, fn) { fn(); passed++; console.log('ok  ' + name); }
 
-test('normal chain R1, R3 from a Monday lesson (R7 falls past the 2 weeks)', function () {
-  // Bio on Mondays only. Mon 2 Nov = day 7, Mon 9 Nov = day 14 (outside).
+test('normal chain R1, R3, R7 from a Monday lesson', function () {
+  // Bio on Mondays only. Mon 2 Nov = day 7, Mon 9 Nov = day 14.
   var p = S.buildPlan({ start: START, timetable: tt({ 0: { m: 'Bio' } }), priority: ['Bio'], tests: [] });
   var b = boxesOf(p, 'Bio');
-  assert.deepStrictEqual(daysOf(b), [8, 10]);
+  assert.deepStrictEqual(daysOf(b), [8, 10, 14, 15]);
   assert.strictEqual(b[0].kinds, 'R1');
-  assert.strictEqual(b[1].kinds, 'R3');      // R7 would be day 14, outside the 2 weeks
+  assert.strictEqual(b[1].kinds, 'R3');
+  assert.strictEqual(b[2].kinds, 'R7');      // day 14 is also a lesson day; R7 of the first Monday
+  assert.strictEqual(b[3].kinds, 'R1');      // its R3 (day 17) is past the 14 days
   assert.strictEqual(b[0].slot, 'm');         // Tuesday has no classes: morning is free
 });
 
 test('compression table: Mon -> next Mon gives Tue, Thu, Sun', function () {
   var p = S.buildPlan({ start: START, timetable: tt({ 0: { m: 'Bio' } }), priority: ['Bio'],
     tests: [{ id: 't', subject: 'Bio', date: '2026-11-09', slot: 'auto' }] });
-  // lesson day 7 (Mon 2 Nov), test day 14 (outside) -> 8, 10, 13 (+ test prep on 13)
-  var b = boxesOf(p, 'Bio');
+  // lesson day 7 (Mon 2 Nov), test day 14 -> 8, 10, 13 (+ test prep on 13)
+  var b = boxesOf(p, 'Bio').filter(function (x) { return x.day < 14; });
   assert.deepStrictEqual(daysOf(b), [8, 10, 13]);
   assert.strictEqual(b[2].kinds, 'P+C');
   assert.strictEqual(b[2].weight, 2);
@@ -152,14 +154,31 @@ test('a day off removes that day\'s lessons', function () {
   assert.strictEqual(p.days[7].classes.length, 0);
 });
 
-test('calendar always shows Monday to Sunday, whatever the start day', function () {
-  ['2026-10-26', '2026-10-29', '2026-11-01'].forEach(function (start) {
-    var p = S.buildPlan({ start: start, timetable: tt({}), priority: [], tests: [] });
-    assert.strictEqual(p.days.length, 14);
+test('whole weeks Monday to Sunday: 2 weeks from a Monday, else 3, always 14 planned days', function () {
+  [['2026-10-26', 14], ['2026-10-29', 21], ['2026-11-01', 21]].forEach(function (c) {
+    var p = S.buildPlan({ start: c[0], timetable: tt({}), priority: [], tests: [] });
+    assert.strictEqual(p.days.length, c[1]);
     assert.strictEqual(p.start, '2026-10-26');
     assert.strictEqual(S.weekday(p.days[0].date), 0);
-    assert.strictEqual(S.weekday(p.days[13].date), 6);
+    assert.strictEqual(S.weekday(p.days[p.days.length - 1].date), 6);
+    var planned = p.days.filter(function (d) { return !d.before && !d.after; });
+    assert.strictEqual(planned.length, 14);
+    assert.strictEqual(planned[0].date, c[0]);
   });
+});
+
+test('days after the 14: no classes, lessons, tests or boxes', function () {
+  // Start Thu 29 Oct -> planned up to Wed 11 Nov (day 16); Thu 12 - Sun 15 Nov are after
+  var p = S.buildPlan({ start: START, timetable: tt({ 3: { m: 'Bio' }, 4: { m: 'Bio' } }), priority: ['Bio'],
+    tests: [{ id: 't', subject: 'Bio', date: '2026-11-13' }] });
+  assert.strictEqual(p.end, 17);
+  [17, 18, 19, 20].forEach(function (i) {
+    var d = p.days[i];
+    assert.ok(d.after && d.off);
+    assert.strictEqual(d.classes.length + d.tests.length + d.boxes.length, 0);
+  });
+  assert.ok(p.lessons.every(function (L) { return L.day < 17; }));
+  assert.strictEqual(p.notes.length, 0);
 });
 
 test('days before the start date: no classes, lessons, tests or boxes', function () {

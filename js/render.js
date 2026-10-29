@@ -22,11 +22,15 @@
   function layout(o, measure) {
     var t = o.t, plan = o.plan, blank = !plan;
     var ops = [];
+    // 2 weeks when the plan starts on a Monday (and for the blank template), else 3 in a tighter layout.
+    var weeks = plan ? plan.days.length / 7 : 2, tight = weeks > 2;
     var M = 36, LW = 58, legendH = 84;
     var colW = (W - 2 * M - LW) / 7;
-    var gridTop = M + 44, gap = 14;
-    var GH = (H - M - legendH - 12 - gap - gridTop) / 2;
-    var HH = 34, CH = 26, rowH = (GH - HH - CH) / 3;
+    var gridTop = M + 44, gap = tight ? 8 : 14;
+    var GH = (H - M - legendH - 12 - gap * (weeks - 1) - gridTop) / weeks;
+    var HH = tight ? 26 : 34, CH = tight ? 20 : 26, rowH = (GH - HH - CH) / 3;
+    var headSize = tight ? 13 : 15, cntSize = tight ? 11 : 13, cntY = CH - (tight ? 6 : 8);
+    var ih = tight ? 16 : 19, step = tight ? 18 : 22, itemSize = tight ? 12 : 13;
 
     function rect(x, y, w, h, s) { ops.push(Object.assign({ t: 'rect', x: x, y: y, w: w, h: h }, s)); }
     function line(x1, y1, x2, y2, s) { ops.push(Object.assign({ t: 'line', x1: x1, y1: y1, x2: x2, y2: y2 }, s)); }
@@ -55,16 +59,16 @@
     line(lx, M + 28, W - M, M + 28, { stroke: INK, sw: 1 });
     if (o.name) text(lx + 6, M + 22, o.name, { size: 17, bold: true, maxW: W - M - lx - 10 });
 
-    for (var week = 0; week < 2; week++) {
+    for (var week = 0; week < weeks; week++) {
       var top = gridTop + week * (GH + gap);
       var x0 = M + LW;
       // header + row labels
       rect(M, top, W - 2 * M, GH, { stroke: INK, sw: 1.6 });
       ['m', 'a', 'e'].forEach(function (slot, r) {
         var y = top + HH + r * rowH;
-        text(M + LW / 2 + 5, y + rowH / 2, t('slot_' + slot), { size: 13, bold: true, anchor: 'middle', rot: -90 });
+        text(M + LW / 2 + 5, y + rowH / 2, t('slot_' + slot), { size: tight ? 12 : 13, bold: true, anchor: 'middle', rot: -90 });
       });
-      text(M + LW / 2, top + HH + 3 * rowH + 18, t('printBoxes'), { size: 11, anchor: 'middle', fill: GREY });
+      text(M + LW / 2, top + HH + 3 * rowH + cntY, t('printBoxes'), { size: tight ? 10 : 11, anchor: 'middle', fill: GREY });
 
       for (var c = 0; c < 7; c++) {
         var di = week * 7 + c;
@@ -73,12 +77,12 @@
         if (day && day.off) rect(cx, top + HH, colW, 3 * rowH, { fill: OFF });
         if (day) {
           var f = o.fmtDay(day.date);
-          text(cx + colW / 2, top + 23, f.wd + ' ' + f.dm, { size: 15, bold: true, anchor: 'middle', maxW: colW - 8 });
-          if (day.off && !day.before) text(cx + colW / 2, top + HH + 1.5 * rowH + 5, t('dayOff'), { size: 15, bold: true, anchor: 'middle', fill: GREY });
+          text(cx + colW / 2, top + HH - 11 + (tight ? 2 : 0), f.wd + ' ' + f.dm, { size: headSize, bold: true, anchor: 'middle', maxW: colW - 8 });
+          if (day.off && !day.before && !day.after) text(cx + colW / 2, top + HH + 1.5 * rowH + 5, t('dayOff'), { size: headSize, bold: true, anchor: 'middle', fill: GREY });
           var cnt = day.load + ' / 4' + (day.over ? '  !' : '');
-          if (!day.off) text(cx + colW / 2, top + HH + 3 * rowH + 18, cnt, { size: 13, bold: day.over, anchor: 'middle' });
+          if (!day.off) text(cx + colW / 2, top + HH + 3 * rowH + cntY, cnt, { size: cntSize, bold: day.over, anchor: 'middle' });
         } else {
-          text(cx + colW / 2, top + HH + 3 * rowH + 18, '___ / 4', { size: 13, anchor: 'middle', fill: GREY });
+          text(cx + colW / 2, top + HH + 3 * rowH + cntY, '___ / 4', { size: cntSize, anchor: 'middle', fill: GREY });
         }
         if (day && !day.off) ['m', 'a', 'e'].forEach(function (slot, r) { drawCell(day, slot, cx, top + HH + r * rowH); });
       }
@@ -96,7 +100,7 @@
       day.tests.forEach(function (tt) { if (tt.slot === slot) { items.push({ type: 'test', label: t('printTest') + ': ' + tt.subject }); testKeys[tt.key] = true; } });
       day.classes.forEach(function (cl) { if (cl.slot === slot && !testKeys[cl.key]) items.push({ type: 'class', label: cl.subject }); });
       day.boxes.forEach(function (b) { if (b.slot === slot) items.push(boxItem(b)); });
-      var pad = 5, ih = 19, step = 22;
+      var pad = 5, ty = ih - 5;
       var fitN = Math.floor((rowH - pad) / step);
       var shown = items.length > fitN ? items.slice(0, fitN - 1) : items;
       var iw = colW - 2 * pad;
@@ -104,19 +108,20 @@
         var x = cx + pad, y = cy + pad + k * step;
         if (it.type === 'test') {
           rect(x, y, iw, ih, { fill: C.test.fill, r: 2 });
-          text(x + 6, y + 14, it.label, { size: 13, bold: true, fill: C.test.text, maxW: iw - 10 });
+          text(x + 6, y + ty, it.label, { size: itemSize, bold: true, fill: C.test.text, maxW: iw - 10 });
         } else if (it.type === 'class') {
           rect(x, y, iw, ih, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
-          text(x + 6, y + 14, it.label, { size: 13, fill: C.cls.text, maxW: iw - 10 });
+          text(x + 6, y + ty, it.label, { size: itemSize, fill: C.cls.text, maxW: iw - 10 });
         } else {
           var c = it.prep ? C.prep : C.review;
           rect(x, y, iw, ih, { stroke: c.stroke, sw: it.prep ? 3 : 1.5, fill: c.fill, r: 2 });
-          rect(x + 5, y + 4, 11, 11, { stroke: INK, sw: 1.2, fill: WHITE });
-          text(x + 21, y + 14, it.label, { size: 13, bold: it.prep, fill: c.text, maxW: iw - 25 });
+          var tb = ih - 8;
+          rect(x + 5, y + 4, tb, tb, { stroke: INK, sw: 1.2, fill: WHITE });
+          text(x + 10 + tb, y + ty, it.label, { size: itemSize, bold: it.prep, fill: c.text, maxW: iw - 14 - tb });
         }
       });
       if (shown.length < items.length) {
-        text(cx + pad + 2, cy + pad + shown.length * step + 14, t('printMore', { n: items.length - shown.length }), { size: 12, bold: true });
+        text(cx + pad + 2, cy + pad + shown.length * step + ty, t('printMore', { n: items.length - shown.length }), { size: itemSize - 1, bold: true });
       }
     }
 
@@ -133,7 +138,7 @@
     }
 
     // Legend
-    var ly = gridTop + 2 * GH + gap + 14;
+    var ly = gridTop + weeks * GH + (weeks - 1) * gap + 14;
     var lx2 = M, sw = 34;
     function legendItem(kind, label) {
       if (kind === 'class') rect(lx2, ly, sw, 18, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });

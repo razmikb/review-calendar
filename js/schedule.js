@@ -2,9 +2,10 @@
  * Scheduling rules for the 2-week spaced review calendar.
  * Pure functions only (no DOM), so the same code runs in the browser and in Node tests.
  *
- * The calendar always shows whole weeks, Monday to Sunday: the week of the start date and the next one.
- * Day numbers are relative to that Monday: day 0 = Monday, day 13 = last Sunday shown.
- * Days before the start date are shown but empty (no lessons, no study), like days off.
+ * The plan covers 14 days from the start date. The calendar shows them in whole weeks, Monday to Sunday:
+ * 2 weeks when the start is a Monday, otherwise 3.
+ * Day numbers are relative to that first Monday: day 0 = Monday.
+ * Days before the start or after the 14 days are shown but empty (no lessons, no study), like days off.
  * Dates are handled in UTC so daylight-saving changes never shift a day.
  */
 (function (root, factory) {
@@ -13,7 +14,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var HORIZON = 14;          // days shown on the calendar
+  var HORIZON = 14;          // days planned from the start date
   var DAILY_CAP = 4;         // boxes per day before a warning
   var PRETEST_WEIGHT = 2;    // a test-prep box counts as 2 boxes
   var SLOTS = ['m', 'a', 'e']; // morning, afternoon, evening
@@ -76,10 +77,11 @@
   function buildPlan(state) {
     var start = mondayOf(state.start);
     var first = dayDiff(start, state.start); // index of the start date; earlier days are before the plan
-    var H = HORIZON;
+    var end = first + HORIZON;               // first day after the plan
+    var shown = Math.ceil(end / 7) * 7;      // whole weeks on the calendar
     var offSet = {};
     (state.daysOff || []).forEach(function (d) { offSet[dayDiff(start, d)] = true; });
-    var isOff = function (d) { return d < first || !!offSet[d]; };
+    var isOff = function (d) { return d < first || d >= end || !!offSet[d]; };
 
     var prioKeys = {};
     (state.priority || []).forEach(function (s) { prioKeys[subjectKey(s)] = true; });
@@ -90,8 +92,8 @@
 
     var notes = [];
     var days = [];
-    for (var d = 0; d < H; d++) {
-      days.push({ i: d, date: addDays(start, d), before: d < first, off: isOff(d), classes: [], tests: [], boxes: [], load: 0, over: false });
+    for (var d = 0; d < shown; d++) {
+      days.push({ i: d, date: addDays(start, d), before: d < first, after: d >= end, off: isOff(d), classes: [], tests: [], boxes: [], load: 0, over: false });
     }
 
     // Classes (layer 1) for the shown days, and when each subject meets per day.
@@ -118,12 +120,12 @@
       var dayIndex = dayDiff(start, t.date);
       var slot = t.slot && t.slot !== 'auto' ? t.slot : null;
       if (!slot) {
-        var cls = dayIndex >= 0 && dayIndex < H ? classesOn(dayIndex).filter(function (c) { return c.key === k; })[0] : null;
+        var cls = dayIndex >= first && dayIndex < end ? classesOn(dayIndex).filter(function (c) { return c.key === k; })[0] : null;
         slot = cls ? cls.slot : 'm';
       }
       return { id: t.id, subject: displayName[k] || t.subject, key: k, day: dayIndex, date: t.date, slot: slot };
     }).sort(function (a, b) { return a.day - b.day; });
-    tests.forEach(function (t) { if (t.day >= first && t.day < H) days[t.day].tests.push(t); });
+    tests.forEach(function (t) { if (t.day >= first && t.day < end) days[t.day].tests.push(t); });
 
     function nextTest(key, afterDay) {
       for (var i = 0; i < tests.length; i++) if (tests[i].key === key && tests[i].day > afterDay) return tests[i];
@@ -180,15 +182,15 @@
       parts.push({ kind: 'P', test: T.id, key: T.key, subject: T.subject, day: T.day - 1, lessons: covered, bound: T.day });
     });
 
-    // Only keep what falls inside the 2 weeks, from the start date on.
-    parts = parts.filter(function (p) { return p.day >= first && p.day < H; });
+    // Only keep what falls inside the 14 planned days.
+    parts = parts.filter(function (p) { return p.day >= first && p.day < end; });
 
     // Days off: move to the next study day before the test; failing that, the latest study day before.
     var kept = [];
     parts.forEach(function (p) {
       if (!isOff(p.day)) { kept.push(p); return; }
       var from = p.day, to = -1, d;
-      for (d = from + 1; d < H && d < p.bound; d++) if (!isOff(d)) { to = d; break; }
+      for (d = from + 1; d < end && d < p.bound; d++) if (!isOff(d)) { to = d; break; }
       if (to < 0) {
         var earliest = p.kind === 'P' ? first : Math.max(first, minLessonDay(p) + 1);
         for (d = from - 1; d >= earliest; d--) if (!isOff(d)) { to = d; break; }
@@ -234,7 +236,7 @@
         var moved = false;
         for (var c = 0; c < candidates.length && !moved; c++) {
           var box = candidates[c], to = -1;
-          for (var d = day.i + 1; d < H; d++) if (!isOff(d)) { to = d; break; }
+          for (var d = day.i + 1; d < end; d++) if (!isOff(d)) { to = d; break; }
           if (to >= 0 && to >= box.bound) continue; // would land on or after its test
           day.boxes.splice(day.boxes.indexOf(box), 1);
           if (to < 0) {
@@ -274,7 +276,7 @@
       day.over = day.load > DAILY_CAP;
     });
 
-    return { start: start, first: first, days: days, lessons: lessons, tests: tests, notes: notes };
+    return { start: start, first: first, end: end, days: days, lessons: lessons, tests: tests, notes: notes };
   }
 
   function kindOrder(k) { return { Q: 0, P: 1, C: 2, R1: 3, R3: 4, R7: 5 }[k]; }

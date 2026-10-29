@@ -12,14 +12,14 @@ A static page where a student builds a 2-week spaced review calendar, then print
 - `test/schedule.test.js`: run with `node test/schedule.test.js`
 
 ## Rules as implemented
-1. Start date: today by default, editable. The calendar always shows whole weeks, Monday to Sunday: the week of the start date and the next one. Days before the start date are greyed out (no classes, no study).
+1. Start date: today by default, editable. The plan covers 14 days from it. The calendar shows them as whole weeks, Monday to Sunday: 2 weeks when the start is a Monday, otherwise 3 (the print layout gets tighter to fit). Days before the start or after the 14 days are greyed out (no classes, no study).
 2. Classes come from a typed weekly timetable (Mon–Sun × morning/afternoon/evening, comma-separated), repeated for both weeks.
 3. Only the chosen priority subjects get review boxes. One lesson per subject per day (a double lesson counts once).
 4. Normal chain: day +1, +3, +7. If the next test is on day +7 or sooner, compress: up to 3 reviews, one per day, first on +1, last on the day before the test. Test the next day → quick recall on test day, before the test.
 5. Test prep the day before every test covers lessons since the previous test in that subject. It counts as **2 boxes**.
 6. Same subject, same day → one merged box.
 7. Days off = no classes and no study. Reviews on them move to the next study day before the test; if none fits, to the latest study day before.
-8. Over 4 boxes: move boxes holding only 7-day reviews first, then 3-day reviews, to the next study day. Never 1-day, compressed, or test-prep boxes, never earlier, never onto or after the test. If a day is still over 4, it shows a warning. Boxes pushed past the last Sunday show a note ("add it when you plan next week").
+8. Over 4 boxes: move boxes holding only 7-day reviews first, then 3-day reviews, to the next study day. Never 1-day, compressed, or test-prep boxes, never earlier, never onto or after the test. If a day is still over 4, it shows a warning. Boxes pushed past the 14 days show a note ("add it when you plan next week").
 9. Reviews go in the first time-of-day slot with no class or test, else evening.
 
 ## Deferred (future versions)
