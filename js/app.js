@@ -167,12 +167,15 @@
 
   function viewOff() {
     var cells = '';
+    var monday = S.mondayOf(state.start), first = S.dayDiff(monday, state.start);
     for (var i = 0; i < S.HORIZON; i++) {
-      var d = S.addDays(state.start, i);
-      cells += '<button type="button" class="chip-btn" data-action="off" data-date="' + d + '" aria-pressed="' + (state.daysOff.indexOf(d) >= 0) + '">' +
-        '<small>' + esc(wd(d)) + '</small>' + esc(dm(d)) + '</button>';
+      var d = S.addDays(monday, i);
+      cells += i < first
+        ? '<span class="chip-btn before" aria-hidden="true"><small>' + esc(wd(d)) + '</small>' + esc(dm(d)) + '</span>'
+        : '<button type="button" class="chip-btn" data-action="off" data-date="' + d + '" aria-pressed="' + (state.daysOff.indexOf(d) >= 0) + '">' +
+          '<small>' + esc(wd(d)) + '</small>' + esc(dm(d)) + '</button>';
     }
-    var n = state.daysOff.filter(function (d) { var k = S.dayDiff(state.start, d); return k >= 0 && k < S.HORIZON; }).length;
+    var n = state.daysOff.filter(function (d) { var k = S.dayDiff(monday, d); return k >= first && k < S.HORIZON; }).length;
     return '<section class="panel"><h2>' + esc(t('offHeading')) + '</h2><p>' + esc(t('offBody')) + '</p>' +
       '<div class="offs">' + cells + '</div><p class="muted small">' + esc(t('offCount', { n: n })) + '</p></section>';
   }
@@ -202,6 +205,7 @@
     var overDays = p.days.filter(function (d) { return d.over; }).length;
     var head = '<section class="panel"><h2>' + esc(t('calHeading')) + '</h2>' +
       '<p class="muted">' + esc(t('calRange', { from: dayLabel(p.days[0].date), to: dayLabel(p.days[p.days.length - 1].date) })) + '</p>' +
+      (p.first ? '<p class="muted small">' + esc(t('calBeforeNote', { date: dayLabel(state.start) })) + '</p>' : '') +
       (chosen().length ? '' : '<p class="warn">' + esc(t('noPriority')) + '</p>') +
       (overDays ? '<p class="warn">' + esc(t('overCapSummary', { n: overDays })) + '</p>' : '') +
       p.notes.map(function (n) {
@@ -230,6 +234,10 @@
             '<span class="what">' + esc(boxWhat(b)) + '</span></span></label>' +
             '<details><summary>' + esc(t('why')) + '</summary><ul>' + b.parts.map(function (x) { return '<li>' + esc(explain(x, p)) + '</li>'; }).join('') + '</ul></details></div>';
         }).join('');
+        if (d.before) {
+          return label + '<article class="day off before"><header><h3>' + esc(wd(d.date)) + ' <span>' + esc(dm(d.date)) + '</span></h3></header>' +
+            '<p class="muted small">' + esc(t('beforeStart')) + '</p></article>';
+        }
         return label + '<article class="day' + (d.off ? ' off' : '') + (d.over ? ' over' : '') + '">' +
           '<header><h3>' + esc(wd(d.date)) + ' <span>' + esc(dm(d.date)) + '</span>' + (d.date === today ? '<span class="today">' + esc(t('today')) + '</span>' : '') + '</h3>' +
           (d.off ? '' : '<span class="count">' + esc(t('boxesCount', { n: d.load })) + '</span>') + '</header>' +

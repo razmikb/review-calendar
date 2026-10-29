@@ -67,7 +67,7 @@
         if (day) {
           var f = o.fmtDay(day.date);
           text(cx + colW / 2, top + 23, f.wd + ' ' + f.dm, { size: 15, bold: true, anchor: 'middle', maxW: colW - 8 });
-          if (day.off) text(cx + colW / 2, top + HH + 1.5 * rowH + 5, t('dayOff'), { size: 15, bold: true, anchor: 'middle', fill: GREY });
+          if (day.off && !day.before) text(cx + colW / 2, top + HH + 1.5 * rowH + 5, t('dayOff'), { size: 15, bold: true, anchor: 'middle', fill: GREY });
           var cnt = day.load + ' / 4' + (day.over ? '  !' : '');
           if (!day.off) text(cx + colW / 2, top + HH + 3 * rowH + 18, cnt, { size: 13, bold: day.over, anchor: 'middle' });
         } else {

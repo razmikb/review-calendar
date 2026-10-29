@@ -158,6 +158,7 @@ details.why p { margin-top: 6px; font-size: 0.9rem; color: var(--muted); }
 .offs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .offs .chip-btn { border-radius: 8px; padding: 8px 2px; display: grid; text-align: center; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .offs .chip-btn small { font-size: 0.75rem; }
+.offs .chip-btn.before { opacity: 0.4; cursor: default; }
 .offs .chip-btn[aria-pressed="true"] { background: var(--muted); border-color: var(--muted); color: var(--surface); }
 
 /* Tests */
