@@ -24,7 +24,11 @@ A static page where a student builds a 2-week spaced review calendar, then print
 
 ## Exam season mode (in progress: stage 1 of 2)
 A second mode, chosen on the Start step. The 2-week mode is unchanged.
-- Steps: Start → Classes → Exams → Topics → Tests → Days off → Season map. (Stage 2 adds the period calendar.)
+- Steps: Start → Classes → Exams → Topics → Days off → Season map. (Stage 2 adds the period calendar.)
+- The Exams step has three parts: target exam, milestones, and class tests and quizzes (the same tests as the 2-week mode's Tests step).
+- Choosing the target exam's type adds empty milestone rows: National exams → 3 mock exams, University session exams → 1 midterm, Other → none. They have no dates: the student types each one. Rows are only replaced while no milestone has a date or name typed.
+- A subject added to the target exam is ticked on every milestone; removed, it is unticked everywhere.
+- If the next milestone is more than 8 weeks away, the Exams step and the season map both say so.
 - Exams: a target exam (National exams / University session exams / Other) with date and subjects, plus milestones (Mock exam / Midterm / Session exam / Other) with date and subjects. Students type every date; nothing is hardcoded. Milestone subjects are picked from the target exam's subjects. Only the target exam's subjects get review boxes.
 - Periods: start → each upcoming milestone → target exam. A milestone on or before the start date has passed; one on or after the target exam is ignored (with a warning).
 - The next period to plan in detail runs from the start date to the next milestone (or the target exam), at most 8 weeks.

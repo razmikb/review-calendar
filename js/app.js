@@ -8,7 +8,7 @@
   // Each mode has its own steps: [label key, view].
   var STEPS = {
     two: [['step1', viewStart], ['step2', viewClasses], ['step3', viewSubjects], ['step4', viewTests], ['step5', viewOff], ['step6', viewCalendar]],
-    season: [['step1', viewStart], ['step2', viewClasses], ['stepExams', viewExams], ['stepTopics', viewTopics], ['step4', viewTests], ['step5', viewOff], ['stepMap', viewMap]]
+    season: [['step1', viewStart], ['step2', viewClasses], ['stepExams', viewExams], ['stepTopics', viewTopics], ['step5', viewOff], ['stepMap', viewMap]]
   };
   function steps() { return STEPS[state.mode] || STEPS.two; }
   function season() { return state.mode === 'season'; }
@@ -177,7 +177,8 @@
         }).join('') + '</select></label>' +
         '<button type="button" class="btn quiet" data-action="remove-test" data-id="' + id + '">' + esc(t('removeTest')) + '</button></div>';
     }).join('');
-    return '<section class="panel"><h2>' + esc(t('testsHeading')) + '</h2><p>' + esc(t('testsBody')) + '</p>' +
+    return '<section class="panel">' + (season() ? '<h3>' + esc(t('classTestsHeading')) + '</h3><p>' + esc(t('classTestsBody')) + '</p>'
+        : '<h2>' + esc(t('testsHeading')) + '</h2><p>' + esc(t('testsBody')) + '</p>') +
       (rows || '<p class="muted">' + esc(t('testsEmpty')) + '</p>') +
       '<div><button type="button" class="btn" data-action="add-test">' + esc(t('addTest')) + '</button></div>' +
       why('whyTests') + '</section>';
@@ -352,7 +353,7 @@
     var rows = state.milestones.map(function (m) {
       var id = esc(m.id);
       var st = sea.milestones.filter(function (x) { return x.id === m.id; })[0];
-      var status = !m.date ? ['warn', t('msNoDate')]
+      var status = !m.date ? ['muted small', t('msNoDate')]
         : st.days <= 0 ? ['muted small', t('msPassed')]
         : sea.target && m.date >= sea.target.date ? ['warn', t('msAfterTarget')]
         : ['muted small', left(st)];
@@ -376,7 +377,20 @@
       '<h3>' + esc(t('targetHeading')) + '</h3>' + target + '</section>' +
       '<section class="panel"><h3>' + esc(t('milestonesHeading')) + '</h3><p>' + esc(t('milestonesBody')) + '</p>' +
       (rows || '<p class="muted">' + esc(t('milestonesEmpty')) + '</p>') +
-      '<div><button type="button" class="btn" data-action="add-ms">' + esc(t('addMilestone')) + '</button></div></section>';
+      '<div><button type="button" class="btn" data-action="add-ms">' + esc(t('addMilestone')) + '</button></div>' +
+      (sea.period && sea.period.capped ? '<p class="note">' + esc(t('periodCapped')) + '</p>' : '') + '</section>' +
+      viewTests();
+  }
+
+  // Empty milestone rows for the target exam's type. The student types every date.
+  var DEFAULT_MILESTONES = { national: ['mock', 'mock', 'mock'], session: ['midterm'], other: [] };
+  function defaultMilestones() {
+    // Only when the student has not typed any milestone date yet: never throw away their work.
+    if (state.milestones.some(function (m) { return m.date || m.name; })) return;
+    var now = Date.now();
+    state.milestones = (DEFAULT_MILESTONES[state.target.type] || []).map(function (type, i) {
+      return { id: 'm' + now + i, type: type, name: '', date: '', subjects: chosen() };
+    });
   }
 
   function periodTitle(p) {
@@ -403,7 +417,7 @@
     var head = '<section class="panel"><h2>' + esc(t('mapHeading')) + '</h2>' +
       (sea.period ? '<p>' + esc(t('nextPeriod', { from: dayLabel(sea.period.from), to: dayLabel(sea.period.to), stop: stopName(sea.period.stop) })) + '</p>'
         : '<p class="warn">' + esc(t('needTarget')) + '</p>') +
-      (sea.period && sea.period.capped ? '<p class="warn">' + esc(t('periodCapped')) + '</p>' : '') +
+      (sea.period && sea.period.capped ? '<p class="note">' + esc(t('periodCapped')) + '</p>' : '') +
       sea.late.map(function (m) { return '<p class="warn">' + esc(stopName(m) + ' ' + fullDate(m.date) + ': ' + t('msAfterTarget')) + '</p>'; }).join('') +
       '<div class="row"><div class="view-toggle" role="group">' +
       '<button type="button" data-action="map-view" data-view="list" aria-pressed="' + (state.mapView !== 'grid') + '">' + esc(t('viewOverview')) + '</button>' +
@@ -531,12 +545,24 @@
     else if (a === 'example') example();
     else if (a === 'reset') ui.confirmReset = true;
     else if (a === 'reset-no') ui.confirmReset = false;
-    else if (a === 'reset-yes') { var lang = state.lang, mode = state.mode; state = fresh(); state.lang = lang; state.mode = mode; ui.confirmReset = false; }
-    else if (a === 'mode') { state.mode = el.getAttribute('data-mode'); ui.flash = ''; }
-    else if (a === 'tsub') state.target.subjects = toggleSubject(state.target.subjects, el.getAttribute('data-subject'));
+    else if (a === 'reset-yes') { var lang = state.lang, mode = state.mode; state = fresh(); state.lang = lang; state.mode = mode; ui.confirmReset = false; if (season()) defaultMilestones(); }
+    else if (a === 'mode') {
+      state.mode = el.getAttribute('data-mode'); ui.flash = '';
+      if (season() && !state.milestones.length && !state.target.date) defaultMilestones();
+    }
+    else if (a === 'tsub') {
+      // A subject added to the target exam is ticked on every milestone; removed, it goes from all of them.
+      var sub = el.getAttribute('data-subject'), on = !hasSubject(state.target.subjects, sub);
+      state.target.subjects = toggleSubject(state.target.subjects, sub);
+      state.milestones.forEach(function (m) { if (hasSubject(m.subjects, sub) !== on) m.subjects = toggleSubject(m.subjects || [], sub); });
+    }
     else if (a === 'tsub-add') {
       var input = document.getElementById('tg-add');
-      S.splitSubjects(input && input.value).forEach(function (x) { if (!hasSubject(state.target.subjects, x)) state.target.subjects.push(x); });
+      S.splitSubjects(input && input.value).forEach(function (x) {
+        if (hasSubject(state.target.subjects, x)) return;
+        state.target.subjects.push(x);
+        state.milestones.forEach(function (m) { if (!hasSubject(m.subjects, x)) m.subjects = (m.subjects || []).concat([x]); });
+      });
     }
     else if (a === 'msub') {
       var ms = state.milestones.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
@@ -607,6 +633,7 @@
     } else if (el.hasAttribute('data-tg')) {
       if (el.getAttribute('data-tg') === 'name') return;
       state.target[el.getAttribute('data-tg')] = el.value;
+      if (el.getAttribute('data-tg') === 'type') defaultMilestones();
     } else if (el.hasAttribute('data-ms')) {
       if (el.getAttribute('data-key') === 'name') return;
       msById(el.getAttribute('data-ms'))[el.getAttribute('data-key')] = el.value;
