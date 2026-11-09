@@ -37,6 +37,25 @@ Way of working: 2 stages, show the owner each one.
 5. Open question for the owner: the 2-week "Test prep: <Subject>" label is cut before the subject in Georgian
    (exam season already puts the subject first); change it there too?
 
+## Next big change: calendar-first UI (decided 2026-11-10, not started in the app)
+Owner wants to replace the step-by-step forms with one screen: a blank calendar the student edits directly,
+with sessions appearing as classes and tests are added. Decisions so far:
+- **Order:** finish stage 2 testing and merge this branch into `main` first; then build the redesign on a new branch.
+- **Rename "review boxes" to "sessions"** everywhere in the UI ("box" undersells them; they are study sessions).
+  Needs new `en` strings and the owner's `ka` translation. The print legend and "Boxes n / 4" footer change too.
+- **Editing:** tap an empty slot → add a class (repeats weekly) or a test; tap a day header → day off;
+  subject chips choose which subjects get sessions; drag classes and tests to move them; undo instead of confirms.
+- **Sessions are fixed by default.** An advanced "Move sessions" toggle lets students drag them, after a warning that
+  explains why they are placed where they are and what to watch if they move one. Moved sessions can't go on/after
+  their test or on/before the lesson they review; moving earlier or over 4 a day shows a warning.
+  Moved sessions go back to their planned day if classes, tests or days off change.
+- **Phone layout:** days become rows, morning/afternoon/evening become 3 columns; long-press to drag.
+- **Print/PNG export unchanged:** `render.js` keeps drawing the A4 pages from the same state.
+- Exam season (season map as a zoom level, milestones on a timeline) is not designed in detail yet.
+- **Test prep is always locked**, also in advanced mode (owner, 2026-11-10).
+- Prototype (2-week mode only, uses the real `schedule.js`): https://claude.ai/artifact/LjE97EobF2aBG8SLw4Kfjd
+  Owner approved the design on 2026-11-10: "new design looks good. lets go with it."
+
 ## Verified so far
 - `node test/schedule.test.js` → 19 pass (the original 2-week rules, unchanged).
 - `node test/season.test.js` → 7 pass (season periods, 8-week cap, passed/late milestones, suggested dates).
