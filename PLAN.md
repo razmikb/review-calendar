@@ -37,7 +37,7 @@ Way of working: 2 stages, show the owner each one.
 5. Open question for the owner: the 2-week "Test prep: <Subject>" label is cut before the subject in Georgian
    (exam season already puts the subject first); change it there too?
 
-## Next big change: calendar-first UI (decided 2026-11-10, not started in the app)
+## Calendar-first UI (decided 2026-11-10; both modes built on branch `claude/calendar-first`)
 Owner wants to replace the step-by-step forms with one screen: a blank calendar the student edits directly,
 with sessions appearing as classes and tests are added. Decisions so far:
 - **Order:** finish stage 2 testing and merge this branch into `main` first; then build the redesign on a new branch.
@@ -55,6 +55,52 @@ with sessions appearing as classes and tests are added. Decisions so far:
 - **Test prep is always locked**, also in advanced mode (owner, 2026-11-10).
 - Prototype (2-week mode only, uses the real `schedule.js`): https://claude.ai/artifact/LjE97EobF2aBG8SLw4Kfjd
   Owner approved the design on 2026-11-10: "new design looks good. lets go with it."
+- **Built (2-week mode, not merged):** `js/board.js` is the new screen; `app.js` renders it when `mode` is `two`
+  (the old 2-week steps are gone). New state: `moved`, `advanced`.
+  Moved sessions also print where the student put them (`plan()` applies them). Tests can be added on the greyed days
+  after the 2 weeks (they shape the sessions before them); tests further out are listed under the calendar.
+  Lesson topics are typed in a class's sheet; "done" ticks in a session's sheet. Undo lives in memory only.
+- **Strings:** every English "box" now says "session"; new keys start with `b` or `ses_` (section "2-week calendar screen").
+  **`ka` still says უჯრა and the new keys are not translated** (they fall back to English).
+- **Checked:** the 3 test files pass; headless Chromium at desktop size: add class/test, after-period test, drag class,
+  drag test, locked session, test prep locked, advanced move, undo, day off, mode switch, print SVG; phone layout by
+  measuring cells (no screenshot). **Not checked:** a real phone (long-press drag on iOS Safari and Android).
+- **Exam season on the same screen (built, not merged).** The step pages are gone for both modes; `app.js` is now only
+  state, strings and export. Above the calendar, exam season shows a timeline: Start → Period 1 → milestone → … → target exam,
+  then "+ Milestone". Tap the target exam or a milestone to edit type, name, date and subjects in a sheet (changes apply at once);
+  tap a period to write its topics. Milestones and the target exam also show in the calendar and can be dragged to a new date.
+  "On the target exam" chips replace "Sessions for" (they set the target's subjects and tick them on every milestone; a new
+  class subject does not get sessions automatically in this mode). Until the target exam has a date and subjects the calendar
+  shows the next 2 weeks, so classes can be added first. **Practice tests are locked like test prep**; fix errors, sort errors
+  and old topics can be moved in advanced mode (sort errors only after its exam). Export: period calendar pages + season map.
+  The 4-step cycle moved into "How it works".
+- **Fixed while testing:** "Start over" (in the export panel, outside the calendar) did nothing in either mode; a refused
+  drag of a locked session threw an error.
+- **Checked (exam season, headless Chromium, desktop size):** reset, set target date/subjects in the sheet, suggested milestones,
+  add classes, change milestone type (practice test + fix errors appear for a midterm), drag a milestone, period topics
+  (shown on the printed season map), practice test locked, move old topics + undo, print period (4 pages) and season map.
+- **Unused strings:** the old step strings (`step1`, `classesHeading`, `examsHeading`, `topicsHeading`, `viewList`, …) are no
+  longer shown. Left in `strings.js` for now; remove them once the owner is happy with the new screen.
+- **Owner feedback on exam season (2026-11-10):**
+  1. National exams are on several days → `target.subjectDates = { subjectKey: date }`. `target.date` is the first exam day;
+     each subject defaults to it and can get its own day in the target sheet ("Day of each exam"), or by dragging that
+     subject's exam in the calendar. `buildSeason` gives `target.date` = earliest day, `target.last`, `target.dateOf`;
+     each subject's run-up and test prep follow its own day; the last period runs to the last exam day (8-week cap).
+     Milestones on or after the first exam day are not used. Test added in `test/period.test.js`.
+  2. Milestones of the same type are numbered by date ("Mock exam 1, 2, 3"; undated ones last), on screen and in print.
+     A milestone alone of its type, or with its own name, has no number. Milestones still have one date each.
+  3. "Each exam should get its own mock exams" → milestones now belong to one subject by default. Choosing the target
+     type gives every exam subject its own set (national: 3 mocks, session: 1 midterm); a subject added to the exam gets
+     its own set, a subject removed loses its own ones (shared ones just untick it). Suggested dates spread toward that
+     subject's own exam day. Numbering counts within the same subject(s). A milestone can still be ticked for several
+     subjects (it then shows in each of their rows).
+     `buildSeason` returns `tracks`: per exam subject, its upcoming milestones then its exam day, each with `from`.
+     The timeline is one row per exam subject with "+ topics" between stops and "+ Milestone" per row. Topics are per
+     subject per stretch, stored as before (`topics[stopId][subjectKey]`, `target` for the last stretch).
+     The printed season map is now one row per exam on a shared date scale (topics above the line, ruled lines when empty);
+     the old subjects × periods table is gone. The global "periods" still decide the calendar's range (up to the next
+     milestone of any subject). Test added in `test/season.test.js`.
+- **Next:** owner tests both modes on a phone; translate the new strings (`b…`, `ses_…`); remove the unused step strings.
 
 ## Verified so far
 - `node test/schedule.test.js` → 19 pass (the original 2-week rules, unchanged).

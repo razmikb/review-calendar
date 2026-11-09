@@ -225,4 +225,26 @@ test('the target exam and a capped period get no extra day', function () {
   assert.strictEqual(c.end, 56);
 });
 
+test('target exam on several days: each subject on its own day, the calendar runs to the last one', function () {
+  // Georgian on day 16 (Tue), Math on day 18 (Thu), English on day 22 (Mon). No milestones.
+  var st = { start: START, timetable: TT, tests: [], daysOff: [], milestones: [],
+    target: { type: 'national', date: day(16), subjects: SUBS, subjectDates: { math: day(18), english: day(22) } } };
+  var sea = S.buildSeason(st);
+  assert.strictEqual(sea.target.date, day(16));
+  assert.strictEqual(sea.target.last, day(22));
+  assert.strictEqual(sea.period.last, day(22)); // runs to the last exam day
+  var p = S.buildPeriod(st);
+  var on = {};
+  p.tests.forEach(function (x) { on[x.subject] = x.day; });
+  assert.deepStrictEqual(on, { Georgian: 16, Math: 18, English: 22 });
+  // each subject gets test prep the day before its own exam, and its own practice test
+  assert.deepStrictEqual(days(boxes(p, 'P', 'Math')), [17]);
+  assert.deepStrictEqual(days(boxes(p, 'P', 'English')), [21]);
+  assert.strictEqual(boxes(p, 'PT', 'English').length, 1);
+  assert.ok(boxes(p, 'PT', 'English')[0].day <= 18);
+  // a milestone on or after the first exam day is not used
+  var late = S.buildSeason(Object.assign({}, st, { milestones: [{ id: 'x', type: 'mock', date: day(17), subjects: SUBS }] }));
+  assert.deepStrictEqual(late.late.map(function (m) { return m.id; }), ['x']);
+});
+
 console.log('\n' + passed + ' tests passed');

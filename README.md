@@ -7,7 +7,8 @@ A static page where a student builds a 2-week spaced review calendar, then print
 - `js/strings.js`: **all text**. Translate by adding keys to `ka` (missing keys fall back to English).
 - `js/schedule.js`: scheduling rules (pure functions, tested)
 - `js/render.js`: the printable A4 calendar. One layout is drawn both as SVG (print/PDF) and to a canvas (PNG).
-- `js/app.js`: the step-by-step UI
+- `js/app.js`: state, strings and export
+- `js/board.js`: the calendar screen for both modes (tap to add, drag to move, sessions appear as you go; exam season adds a timeline of exams above it)
 - `fonts/`: Noto Sans Georgian (SIL Open Font License, `fonts/OFL.txt`)
 - `test/schedule.test.js`, `test/season.test.js`: run with `node test/schedule.test.js` and `node test/season.test.js`
 
@@ -22,13 +23,13 @@ A static page where a student builds a 2-week spaced review calendar, then print
 8. Over 4 boxes: move boxes holding only 7-day reviews first, then 3-day reviews, to the next study day. Never 1-day, compressed, or test-prep boxes, never earlier, never onto or after the test. If a day is still over 4, it shows a warning. Boxes pushed past the 14 days show a note ("add it when you plan next week").
 9. Reviews go in the first time-of-day slot with no class or test, else evening.
 
-## Exam season mode (in progress: stage 1 of 2)
+## Exam season mode
 A second mode, chosen on the Start step. The 2-week mode is unchanged.
-- Steps: Start → Classes → Exams → Topics → Days off → Season map. (Stage 2 adds the period calendar.)
-- The Exams step has three parts: target exam, milestones, and class tests and quizzes (the same tests as the 2-week mode's Tests step).
-- Choosing the target exam's type adds empty milestone rows: National exams → 3 mock exams, University session exams → 1 midterm, Other → none. They have no dates: the student types each one. Rows are only replaced while no milestone has a date or name typed.
+- Same calendar screen, with a timeline above it: Start → period → milestone → … → target exam. Tap the target exam or a milestone to edit it, tap a period to write its topics.
+- Class tests and quizzes are added in the calendar, like in the 2-week mode.
+- Choosing the target exam's type adds milestones: National exams → 3 mock exams, University session exams → 1 midterm, Other → none. Once the target exam has a date they get suggested dates; a date the student sets is kept. They are only replaced while no milestone has a date or name set by the student.
 - A subject added to the target exam is ticked on every milestone; removed, it is unticked everywhere.
-- If the next milestone is more than 8 weeks away, the Exams step and the season map both say so.
+- If the next milestone is more than 8 weeks away, the calendar and the season map both say so.
 - Exams: a target exam (National exams / University session exams / Other) with date and subjects, plus milestones (Mock exam / Midterm / Session exam / Other) with date and subjects. Students type every date; nothing is hardcoded. Milestone subjects are picked from the target exam's subjects. Only the target exam's subjects get review boxes.
 - Periods: start → each upcoming milestone → target exam. A milestone on or before the start date has passed; one on or after the target exam is ignored (with a warning).
 - The next period to plan in detail runs from the start date to the next milestone (or the target exam), at most 8 weeks.

@@ -74,6 +74,23 @@ test('no target date: no periods', function () {
   assert.strictEqual(none.periods.length, 0);
 });
 
+test('each exam subject has its own track: its own mocks, then its own exam day', function () {
+  var sea = S.buildSeason({ start: START,
+    target: { type: 'national', date: '2027-06-07', subjects: ['Math', 'Georgian'], subjectDates: { georgian: '2027-06-10' } },
+    milestones: [
+      { id: 'm1', type: 'mock', date: '2027-01-11', subjects: ['Math'] },
+      { id: 'g1', type: 'mock', date: '2027-01-14', subjects: ['Georgian'] },
+      { id: 'both', type: 'other', date: '2027-03-01', subjects: ['Math', 'Georgian'] },
+      { id: 'old', type: 'mock', date: '2026-10-01', subjects: ['Math'] }
+    ] });
+  function ids(tr) { return tr.stops.map(function (x) { return x.stop.id + '@' + x.stop.date; }); }
+  assert.deepStrictEqual(sea.tracks.map(function (tr) { return tr.subject; }), ['Math', 'Georgian']);
+  assert.deepStrictEqual(ids(sea.tracks[0]), ['m1@2027-01-11', 'both@2027-03-01', 'target@2027-06-07']); // passed one left out
+  assert.deepStrictEqual(ids(sea.tracks[1]), ['g1@2027-01-14', 'both@2027-03-01', 'target@2027-06-10']);
+  assert.strictEqual(sea.tracks[1].stops[0].from, START);
+  assert.strictEqual(sea.tracks[1].stops[1].from, '2027-01-14');
+});
+
 test('suggested milestone dates: evenly spread, on weekdays, none when too close', function () {
   // 210 days to the national exams, 3 mocks -> about 52, 105, 158 days in
   var d = S.suggestDates(START, '2027-06-07', 3);

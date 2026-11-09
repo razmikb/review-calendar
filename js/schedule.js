@@ -383,7 +383,18 @@
       return { id: id, isTarget: isTarget, type: x.type || '', name: String(x.name || '').trim(), date: x.date,
         subjects: subs, days: days, weeks: Math.floor(days / 7), rest: days % 7 };
     }
-    var target = tg.date ? stop(tg, 'target', true) : null;
+    // The target exam can take several days (e.g. national exams: one subject per day). tg.date is its first day;
+    // tg.subjectDates = { subjectKey: date } gives a subject its own day. The target stop is the earliest exam day,
+    // target.last the latest one and target.dateOf the day of each subject.
+    var target = null;
+    if (tg.date) {
+      var dateOf = {};
+      subjects.forEach(function (s) { var k = subjectKey(s); dateOf[k] = (tg.subjectDates && tg.subjectDates[k]) || tg.date; });
+      var days = subjects.length ? subjects.map(function (s) { return dateOf[subjectKey(s)]; }).sort() : [tg.date];
+      target = stop({ type: tg.type, name: tg.name, date: days[0], subjects: subjects }, 'target', true);
+      target.last = days[days.length - 1];
+      target.dateOf = dateOf;
+    }
     var all = (state.milestones || []).filter(function (m) { return m.date; })
       .map(function (m) { return stop(m, m.id, false); })
       .sort(function (a, b) { return a.days - b.days; });
@@ -399,11 +410,26 @@
     if (next) {
       var capped = next.days > PERIOD_MAX;
       period = { from: start, to: capped ? addDays(start, PERIOD_MAX - 1) : next.date, stop: next, capped: capped };
-      // The period calendar runs one day past a milestone, so its "sort errors" box is on it.
-      period.last = capped || next.isTarget ? period.to : addDays(next.date, 1);
+      // The period calendar runs one day past a milestone, so its "sort errors" box is on it,
+      // and to the last day of the target exam (still at most 8 weeks).
+      period.last = capped ? period.to
+        : next.isTarget ? (dayDiff(start, next.last) >= PERIOD_MAX ? addDays(start, PERIOD_MAX - 1) : next.last)
+        : addDays(next.date, 1);
     }
+    // One track per exam subject: its own upcoming milestones, then its own exam day.
+    // Each stop ends a stretch (from the previous stop) that the student can write topics for.
+    var tracks = subjects.map(function (s) {
+      var key = subjectKey(s);
+      var list = upcoming.filter(function (m) { return m.subjects.some(function (x) { return subjectKey(x) === key; }); });
+      if (target && target.days > 0) {
+        var d = target.dateOf[key], n = dayDiff(start, d);
+        list = list.filter(function (m) { return m.date < d; })
+          .concat([{ id: 'target', isTarget: true, type: target.type, name: target.name, date: d, subjects: [s], days: n, weeks: Math.floor(n / 7), rest: n % 7 }]);
+      }
+      return { subject: s, key: key, stops: list.map(function (m, i) { return { stop: m, from: i ? list[i - 1].date : start }; }) };
+    });
     return { start: start, target: target, subjects: subjects, milestones: all, past: past, late: late,
-      stops: stops, periods: periods, period: period };
+      stops: stops, periods: periods, period: period, tracks: tracks };
   }
 
   /**
@@ -435,7 +461,7 @@
     sea.milestones.filter(function (m) { return sea.late.indexOf(m) < 0; })
       .concat(sea.target ? [sea.target] : []).forEach(function (m) {
         m.subjects.forEach(function (s) {
-          stopTests.push({ id: m.id + '|' + subjectKey(s), subject: s, date: m.date, slot: 'auto',
+          stopTests.push({ id: m.id + '|' + subjectKey(s), subject: s, date: m.dateOf ? m.dateOf[subjectKey(s)] : m.date, slot: 'auto',
             stop: { id: m.id, type: m.type, name: m.name, isTarget: m.isTarget } });
         });
       });

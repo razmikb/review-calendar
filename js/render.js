@@ -205,7 +205,8 @@
 
   /*
    * The season map: one A4 landscape page.
-   * o = { t, season (Schedule.buildSeason), name, fmtDate(iso), stopName(stop), left(stop), topics(periodId, subject) }
+   * o = { t, season (Schedule.buildSeason), name, fmtDate(iso), stopName(stop), left(stop), topics(stopId, subject) }
+   * One row per exam subject (season.tracks): its milestones and its exam day, with topics for each stretch.
    * The 4-step cycle at the bottom uses the calendar's box outlines:
    *   Understand = dashed (class), Recall = solid (review), Space = dotted (old topics), Simulate = heavy (practice test).
    */
@@ -213,90 +214,52 @@
     var t = o.t, sea = o.season;
     var P = painter(measure, t), rect = P.rect, line = P.line, text = P.text;
     var M = 36;
-    P.header(t('printSeasonTitle'), sea.target ? o.fmtDate(sea.start) + ' – ' + o.fmtDate(sea.target.date) : '', o.name);
+    P.header(t('printSeasonTitle'), sea.target ? o.fmtDate(sea.start) + ' – ' + o.fmtDate(sea.target.last || sea.target.date) : '', o.name);
 
-    // ---- Timeline: start → milestones → target, spaced by date but never closer than G ----
-    var stops = sea.stops;
-    var n = stops.length;
-    var G = Math.min(200, (W - 2 * M) / (n + 1));
-    var x0 = M + G / 2, x1 = W - M - G / 2;
-    var ly = 150;
-    var total = n ? stops[n - 1].days : 1;
-    var xs = stops.map(function (s) { return x0 + (x1 - x0) * s.days / total; });
-    for (var i = 0; i < n; i++) xs[i] = Math.max(xs[i], (i ? xs[i - 1] : x0) + G);
-    for (i = n - 1; i >= 0; i--) xs[i] = Math.min(xs[i], i === n - 1 ? x1 : xs[i + 1] - G);
-    text(M, 100, t('timelineHeading'), { size: 16, bold: true });
-    line(x0, ly, n ? xs[n - 1] : x1, ly, { stroke: INK, sw: 3 });
-    // start
-    rect(x0 - 7, ly - 7, 14, 14, { fill: GREY, r: 7 });
-    text(x0, ly + 30, t('printStart'), { size: 15, bold: true, anchor: 'middle', maxW: G - 10 });
-    text(x0, ly + 50, o.fmtDate(sea.start), { size: 14, anchor: 'middle' });
-    stops.forEach(function (s, k) {
-      var x = xs[k], prev = k ? xs[k - 1] : x0;
-      text((prev + x) / 2, ly - 12, t('periodN', { n: k + 1 }), { size: 13, fill: GREY, anchor: 'middle', maxW: x - prev - 30 });
-      if (s.isTarget) rect(x - 12, ly - 12, 24, 24, { fill: INK, r: 3 });
-      else rect(x - 9, ly - 9, 18, 18, { fill: WHITE, stroke: INK, sw: 3, r: 9 });
-      text(x, ly + 30, o.stopName(s), { size: 15, bold: true, anchor: 'middle', maxW: G - 10 });
-      text(x, ly + 50, o.fmtDate(s.date), { size: 14, anchor: 'middle' });
-      text(x, ly + 69, o.left(s), { size: 13, fill: GREY, anchor: 'middle', maxW: G - 10 });
-    });
-    if (!n) text(x0 + 30, ly + 5, t('needTarget'), { size: 15, fill: GREY });
-
-    // ---- Table: subjects × periods ----
+    // ---- One row per exam subject: start → its milestones → its exam day, all on one date scale ----
+    // Topics for each stretch are written above the line; an empty stretch gets ruled lines to write on.
     var cycleTop = H - M - 128;
-    var top = 262, bottom = cycleTop - 22;
-    text(M, top - 14, t('tableHeading'), { size: 16, bold: true });
-    var subs = sea.subjects, periods = sea.periods;
-    var SW = 190, HH = 52;
-    var cols = Math.max(1, periods.length);
-    var cw = (W - 2 * M - SW) / cols;
-    var rows = Math.max(1, subs.length);
-    var rh = (bottom - top - HH) / rows;
-    var tableH = HH + rows * rh;
-    periods.forEach(function (p, c) {
-      var cx = M + SW + c * cw;
-      text(cx + 8, top + 21, t('periodN', { n: p.n }) + ' · ' + o.fmtDate(p.from) + ' – ' + o.fmtDate(p.to), { size: 14, bold: true, maxW: cw - 14 });
-      text(cx + 8, top + 41, '→ ' + o.stopName(p.stop), { size: 13, fill: GREY, maxW: cw - 14 });
-    });
-    var LH = 18, size = 14;
-    subs.forEach(function (subj, r) {
-      var y = top + HH + r * rh;
-      P.wrap(subj, 15, true, SW - 16, Math.max(1, Math.floor((rh - 10) / 19))).forEach(function (l, k) {
-        text(M + 8, y + 22 + k * 19, l, { size: 15, bold: true });
-      });
-      periods.forEach(function (p, c) {
-        var cx = M + SW + c * cw;
-        var onExam = p.stop.subjects.some(function (s) { return s === subj; });
-        var tagW = 0;
-        if (onExam) {
-          var tag = t('printOnExam');
-          tagW = measure(tag, 11, true) + 10;
-          rect(cx + cw - tagW - 6, y + 6, tagW, 17, { fill: INK, r: 2 });
-          text(cx + cw - tagW / 2 - 6, y + 19, tag, { size: 11, bold: true, fill: WHITE, anchor: 'middle' });
+    var top = 92, bottom = cycleTop - 22;
+    text(M, top, t('timelineHeading'), { size: 16, bold: true });
+    var tracks = sea.tracks || [];
+    var SW = 180, G = 130;
+    var rows = Math.max(1, tracks.length);
+    var rh = Math.min(230, (bottom - top - 12) / rows);
+    var x0 = M + SW + 30, x1 = W - M - G / 2;
+    var total = 1;
+    tracks.forEach(function (tr) { tr.stops.forEach(function (x) { total = Math.max(total, x.stop.days); }); });
+    tracks.forEach(function (tr, r) {
+      var y0 = top + 12 + r * rh, ly = y0 + Math.round(rh * 0.56);
+      P.wrap(tr.subject, 16, true, SW - 10, 2).forEach(function (l, k) { text(M + 6, ly - 4 + k * 19, l, { size: 16, bold: true }); });
+      var n = tr.stops.length;
+      var xs = tr.stops.map(function (x) { return x0 + (x1 - x0) * x.stop.days / total; });
+      for (var i = 0; i < n; i++) xs[i] = Math.max(xs[i], (i ? xs[i - 1] : x0) + G);
+      for (i = n - 1; i >= 0; i--) xs[i] = Math.min(xs[i], i === n - 1 ? x1 : xs[i + 1] - G);
+      line(x0, ly, n ? xs[n - 1] : x0 + G, ly, { stroke: INK, sw: 2.5 });
+      rect(x0 - 6, ly - 6, 12, 12, { fill: GREY, r: 6 });
+      if (r === 0) text(x0, ly + 24, o.fmtDate(sea.start), { size: 12, fill: GREY, anchor: 'middle' });
+      var LH = 16, maxLines = Math.max(1, Math.floor((ly - y0 - 18) / LH));
+      tr.stops.forEach(function (x, k) {
+        var s = x.stop, cx = xs[k], prev = k ? xs[k - 1] : x0;
+        var segW = cx - prev - 22;
+        var topics = String(o.topics(s.id, tr.subject) || '').split(/[,;\n]+/).map(function (q) { return q.trim(); }).filter(Boolean);
+        if (topics.length) {
+          var lines = [];
+          topics.forEach(function (tp) { P.wrap('• ' + tp, 13, false, segW, 2).forEach(function (l, j) { lines.push((j ? '   ' : '') + l); }); });
+          if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = P.fit(lines[maxLines - 1] + ' …', 13, false, segW); }
+          lines.forEach(function (l, j) { text(prev + 11, ly - 10 - (lines.length - 1 - j) * LH, l, { size: 13, maxW: segW }); });
+        } else {
+          for (var j = 1; j <= Math.min(3, maxLines); j++) line(prev + 11, ly - 6 - j * LH, cx - 11, ly - 6 - j * LH, { stroke: OFF, sw: 1 });
         }
-        var topics = String(o.topics(p.id, subj) || '').split(/[,;\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
-        var maxLines = Math.max(1, Math.floor((rh - 12) / LH));
-        if (!topics.length) {
-          // Empty cell: ruled lines to write on by hand.
-          for (var k = 1; k <= Math.min(8, maxLines - 1); k++) line(cx + 10, y + 8 + k * LH + 4, cx + cw - 12 - (k === 1 ? tagW : 0), y + 8 + k * LH + 4, { stroke: OFF, sw: 1 });
-          return;
-        }
-        var lines = [];
-        topics.forEach(function (tp) { P.wrap('• ' + tp, size, false, cw - 22, 3).forEach(function (l, j) { lines.push((j ? '   ' : '') + l); }); });
-        var firstW = cw - 22 - tagW - 4;
-        if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = P.fit(lines[maxLines - 1] + ' …', size, false, cw - 22); }
-        lines.forEach(function (l, k) {
-          text(cx + 10, y + 21 + k * LH, l, { size: size, maxW: k === 0 ? firstW : cw - 22 });
-        });
+        if (s.isTarget) rect(cx - 10, ly - 10, 20, 20, { fill: INK, r: 3 });
+        else rect(cx - 8, ly - 8, 16, 16, { fill: WHITE, stroke: INK, sw: 2.5, r: 8 });
+        text(cx, ly + 24, o.stopName(s), { size: 13, bold: true, anchor: 'middle', maxW: G - 8 });
+        text(cx, ly + 40, o.fmtDate(s.date), { size: 12, anchor: 'middle' });
+        if (rh > 110) text(cx, ly + 55, o.left(s), { size: 11, fill: GREY, anchor: 'middle', maxW: G - 8 });
       });
+      if (r < rows - 1) line(M, y0 + rh, W - M, y0 + rh, { stroke: OFF, sw: 1 });
     });
-    // grid lines
-    rect(M, top, W - 2 * M, tableH, { stroke: INK, sw: 1.6 });
-    line(M, top + HH, W - M, top + HH, { stroke: INK, sw: 1.2 });
-    line(M + SW, top, M + SW, top + tableH, { stroke: INK, sw: 1.2 });
-    for (var c = 1; c < cols; c++) line(M + SW + c * cw, top, M + SW + c * cw, top + tableH, { stroke: GREY, sw: 0.8 });
-    for (var r = 1; r < rows; r++) line(M, top + HH + r * rh, W - M, top + HH + r * rh, { stroke: GREY, sw: 0.8 });
-    if (!subs.length) text(M + SW + 10, top + HH + 26, t('needTarget'), { size: 14, fill: GREY });
+    if (!tracks.length) text(M, top + 40, t('needTarget'), { size: 15, fill: GREY });
 
     // ---- The 4-step cycle ----
     text(M, cycleTop + 14, t('cycleHeading'), { size: 16, bold: true });
