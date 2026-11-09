@@ -74,21 +74,30 @@
    *   lessonNames: { lessonId: 'topic' }
    * }
    */
-  function buildPlan(state) {
+  function buildPlan(state) { return plan(state, null); }
+
+  /*
+   * The shared planner. cfg = null gives the 2-week calendar exactly as before.
+   * In exam season cfg = { horizon, priority, stopTests } (see buildPeriod) and these rules are added:
+   * R21, cumulative "old topics" boxes, the milestone run-up (practice test, fix errors) and sort errors.
+   */
+  function plan(state, cfg) {
     var start = mondayOf(state.start);
     var first = dayDiff(start, state.start); // index of the start date; earlier days are before the plan
-    var end = first + HORIZON;               // first day after the plan
+    var end = first + (cfg ? cfg.horizon : HORIZON); // first day after the plan
     var shown = Math.ceil(end / 7) * 7;      // whole weeks on the calendar
     var offSet = {};
     (state.daysOff || []).forEach(function (d) { offSet[dayDiff(start, d)] = true; });
     var isOff = function (d) { return d < first || d >= end || !!offSet[d]; };
 
+    var priority = cfg ? cfg.priority : (state.priority || []);
+    var allTests = (state.tests || []).concat(cfg ? cfg.stopTests : []);
     var prioKeys = {};
-    (state.priority || []).forEach(function (s) { prioKeys[subjectKey(s)] = true; });
+    priority.forEach(function (s) { prioKeys[subjectKey(s)] = true; });
     var displayName = {};
     subjectsInTimetable(state.timetable).forEach(function (s) { displayName[subjectKey(s)] = s; });
-    (state.priority || []).forEach(function (s) { if (!displayName[subjectKey(s)]) displayName[subjectKey(s)] = s; });
-    (state.tests || []).forEach(function (t) { if (!displayName[subjectKey(t.subject)]) displayName[subjectKey(t.subject)] = t.subject; });
+    priority.forEach(function (s) { if (!displayName[subjectKey(s)]) displayName[subjectKey(s)] = s; });
+    allTests.forEach(function (t) { if (t.subject && !displayName[subjectKey(t.subject)]) displayName[subjectKey(t.subject)] = t.subject; });
 
     var notes = [];
     var days = [];
@@ -115,7 +124,12 @@
     days.forEach(function (day) { if (!day.off) day.classes = classesOn(day.i); });
 
     // Tests (layer 3). They may lie beyond the 2 weeks: they still shape the reviews.
-    var tests = (state.tests || []).filter(function (t) { return t.subject && t.date; }).map(function (t) {
+    // A regular test on the same day as a milestone in that subject is the milestone.
+    var stopAt = {};
+    (cfg ? cfg.stopTests : []).forEach(function (t) { stopAt[subjectKey(t.subject) + '|' + t.date] = true; });
+    var tests = allTests.filter(function (t) {
+      return t.subject && t.date && (t.stop || !stopAt[subjectKey(t.subject) + '|' + t.date]);
+    }).map(function (t) {
       var k = subjectKey(t.subject);
       var dayIndex = dayDiff(start, t.date);
       var slot = t.slot && t.slot !== 'auto' ? t.slot : null;
@@ -123,7 +137,9 @@
         var cls = dayIndex >= first && dayIndex < end ? classesOn(dayIndex).filter(function (c) { return c.key === k; })[0] : null;
         slot = cls ? cls.slot : 'm';
       }
-      return { id: t.id, subject: displayName[k] || t.subject, key: k, day: dayIndex, date: t.date, slot: slot };
+      var out = { id: t.id, subject: displayName[k] || t.subject, key: k, day: dayIndex, date: t.date, slot: slot };
+      if (t.stop) out.stop = t.stop; // milestone or target exam: { id, type, name, isTarget }
+      return out;
     }).sort(function (a, b) { return a.day - b.day; });
     tests.forEach(function (t) { if (t.day >= first && t.day < end) days[t.day].tests.push(t); });
 
@@ -160,6 +176,8 @@
         [[1, 'R1'], [3, 'R3'], [7, 'R7']].forEach(function (r) {
           parts.push({ kind: r[1], key: L.key, subject: L.subject, day: L.day + r[0], lessons: [L.id], bound: bound });
         });
+        // Exam season: a 4th review 21 days on, only if it still comes before the next test or milestone.
+        if (cfg && L.day + 21 < bound) parts.push({ kind: 'R21', key: L.key, subject: L.subject, day: L.day + 21, lessons: [L.id], bound: bound });
         return;
       }
       var first = L.day + 1, last = T.day - 1;
@@ -181,6 +199,15 @@
         .map(function (L) { return L.id; });
       parts.push({ kind: 'P', test: T.id, key: T.key, subject: T.subject, day: T.day - 1, lessons: covered, bound: T.day });
     });
+    // Exam season: sort the errors the day after each milestone. If that day is before this period,
+    // the period's first day gets it, but only for a milestone in the last 7 days.
+    if (cfg) tests.forEach(function (T) {
+      if (!T.stop) return;
+      var day = T.day + 1;
+      if (day < first) { if (T.day < first - 7) return; day = first; }
+      var N = nextTest(T.key, T.day);
+      parts.push({ kind: 'SE', solo: true, after: T.day, test: T.id, key: T.key, subject: T.subject, day: day, lessons: [], bound: N ? N.day : Infinity });
+    });
 
     // Only keep what falls inside the 14 planned days.
     parts = parts.filter(function (p) { return p.day >= first && p.day < end; });
@@ -192,7 +219,7 @@
       var from = p.day, to = -1, d;
       for (d = from + 1; d < end && d < p.bound; d++) if (!isOff(d)) { to = d; break; }
       if (to < 0) {
-        var earliest = p.kind === 'P' ? first : Math.max(first, minLessonDay(p) + 1);
+        var earliest = p.kind === 'P' ? first : p.kind === 'SE' ? Math.max(first, p.after + 1) : Math.max(first, minLessonDay(p) + 1);
         for (d = from - 1; d >= earliest; d--) if (!isOff(d)) { to = d; break; }
       }
       if (to < 0) { notes.push({ type: 'droppedOff', subject: p.subject, date: addDays(start, from) }); return; }
@@ -207,28 +234,69 @@
       return m === Infinity ? 0 : m;
     }
 
-    // Merge: one box per subject per day.
+    // Exam season run-up for each milestone and the target exam, per subject:
+    // practice test 4 days before, fix errors 3 days before, then the pre-test box the day before (above).
+    // On a day off they go to the previous study day, keeping that order. Before the start date: skipped, with a note.
+    // A mock exam is already a practice exam: it gets only the pre-test box, no practice test or fix errors.
+    if (cfg) tests.forEach(function (T) {
+      if (!T.stop || T.day < first || (!T.stop.isTarget && T.stop.type === 'mock')) return;
+      var P = parts.filter(function (p) { return p.kind === 'P' && p.test === T.id; })[0];
+      var pday = P ? P.day : T.day - 1;
+      function latestStudy(d) { while (d >= first && isOff(d)) d--; return d >= first ? d : -1; }
+      var fx = T.day - 3 >= end ? null : latestStudy(Math.min(T.day - 3, pday - 1));
+      var pt = T.day - 4 >= end ? null : latestStudy(Math.min(T.day - 4, (fx != null && fx >= 0 ? fx : pday) - 1));
+      var skipped = fx === -1 || pt === -1;
+      [['PT', pt, T.day - 4], ['FX', fx, T.day - 3]].forEach(function (r) {
+        if (r[1] == null || r[1] < 0) return;
+        var p = { kind: r[0], solo: true, test: T.id, key: T.key, subject: T.subject, day: r[1], lessons: [], bound: T.day };
+        if (r[1] !== r[2]) p.movedFrom = { day: r[2], why: 'off' };
+        parts.push(p);
+      });
+      if (skipped) notes.push({ type: 'runupSkipped', subject: T.subject, date: T.date, stop: T.stop });
+    });
+
+    // Merge: one box per subject per day. Run-up, sort-errors and cumulative boxes ("solo") stay their own boxes.
+    var WEIGHT = { P: PRETEST_WEIGHT, PT: 2 };
+    var RANK = { CUM: 0, R21: 1, R7: 2, R3: 3 }; // which boxes the cap moves first
+    function mergeKey(p) { return p.solo ? p.key + '|' + p.kind + '|' + (p.test || p.week) : p.key; }
     function addPart(p) {
-      var day = days[p.day];
-      var box = day.boxes.filter(function (b) { return b.key === p.key; })[0];
+      var day = days[p.day], mk = mergeKey(p);
+      var box = day.boxes.filter(function (b) { return b.mk === mk; })[0];
       if (!box) {
-        box = { key: p.key, subject: p.subject, day: p.day, date: day.date, parts: [] };
+        box = { key: p.key, mk: mk, subject: p.subject, day: p.day, date: day.date, parts: [] };
         day.boxes.push(box);
       }
       box.parts.push(p);
       refreshBox(box);
     }
     function refreshBox(box) {
-      box.weight = box.parts.some(function (p) { return p.kind === 'P'; }) ? PRETEST_WEIGHT : 1;
-      box.movable = box.parts.every(function (p) { return p.kind === 'R3' || p.kind === 'R7'; });
-      box.rank = box.parts.every(function (p) { return p.kind === 'R7'; }) ? 0 : 1; // R7-only boxes move first
+      box.weight = Math.max.apply(null, box.parts.map(function (p) { return WEIGHT[p.kind] || 1; }));
+      box.movable = box.parts.every(function (p) { return p.kind in RANK; });
+      box.rank = Math.max.apply(null, box.parts.map(function (p) { return RANK[p.kind] == null ? 9 : RANK[p.kind]; }));
       box.bound = Math.min.apply(null, box.parts.map(function (p) { return p.bound; }));
-      box.id = box.key + '|' + box.date;
+      box.id = box.mk + '|' + box.date;
     }
     parts.forEach(addPart);
     function load(day) { return day.boxes.reduce(function (s, b) { return s + b.weight; }, 0); }
 
-    // Daily cap: move R7, then R3 boxes to the next study day. Never earlier, never onto/after the test.
+    // Exam season: one "old topics" box per subject per week, on the week's least loaded study day
+    // (ties: earlier). Not on that subject's test day; a day without that subject's box if possible.
+    // Weeks with fewer than 4 study days in the period get none.
+    if (cfg) for (var w = 0; w < shown / 7; w++) {
+      var study = days.slice(w * 7, w * 7 + 7).filter(function (d) { return !d.off; });
+      if (study.length < 4) continue;
+      priority.forEach(function (s) {
+        var k = subjectKey(s);
+        var ok = study.filter(function (d) { return !d.tests.some(function (x) { return x.key === k; }); });
+        var free = ok.filter(function (d) { return !d.boxes.some(function (b) { return b.key === k; }); });
+        var pick = (free.length ? free : ok).reduce(function (best, d) { return !best || load(d) < load(best) ? d : best; }, null);
+        if (!pick) return;
+        var N = nextTest(k, pick.i);
+        addPart({ kind: 'CUM', solo: true, week: w, key: k, subject: displayName[k] || s, day: pick.i, lessons: [], bound: N ? N.day : Infinity });
+      });
+    }
+
+    // Daily cap: move cumulative, then R21, R7, R3 boxes to the next study day. Never earlier, never onto/after the test.
     days.forEach(function (day) {
       while (load(day) > DAILY_CAP) {
         var candidates = day.boxes.filter(function (b) { return b.movable; })
@@ -279,7 +347,7 @@
     return { start: start, first: first, end: end, days: days, lessons: lessons, tests: tests, notes: notes };
   }
 
-  function kindOrder(k) { return { Q: 0, P: 1, C: 2, R1: 3, R3: 4, R7: 5 }[k]; }
+  function kindOrder(k) { return { Q: 0, P: 1, C: 2, R1: 3, R3: 4, R7: 5, R21: 6, PT: 7, FX: 8, SE: 9, CUM: 10 }[k]; }
 
   // ---------- exam season ----------
   var PERIOD_MAX = 56; // the period calendar covers at most 8 weeks
@@ -331,14 +399,55 @@
     if (next) {
       var capped = next.days > PERIOD_MAX;
       period = { from: start, to: capped ? addDays(start, PERIOD_MAX - 1) : next.date, stop: next, capped: capped };
+      // The period calendar runs one day past a milestone, so its "sort errors" box is on it.
+      period.last = capped || next.isTarget ? period.to : addDays(next.date, 1);
     }
     return { start: start, target: target, subjects: subjects, milestones: all, past: past, late: late,
       stops: stops, periods: periods, period: period };
   }
 
+  /**
+   * Suggested dates for n milestones: spread evenly between the start and the target exam
+   * (k / (n + 1) of the way), moved off weekends (Saturday → Friday, Sunday → Monday).
+   * Returns [] when the target is less than 2 weeks per milestone away: then the student types the dates.
+   */
+  function suggestDates(start, target, n) {
+    var span = start && target ? dayDiff(start, target) : 0;
+    if (n < 1 || span < 14 * (n + 1)) return [];
+    var out = [];
+    for (var k = 1; k <= n; k++) {
+      var d = addDays(start, Math.round(span * k / (n + 1)));
+      var wd = weekday(d);
+      out.push(wd === 5 ? addDays(d, -1) : wd === 6 ? addDays(d, 1) : d);
+    }
+    return out;
+  }
+
+  /**
+   * The period calendar: the 2-week rules over start → next milestone (at most 8 weeks), plus the exam season rules.
+   * The target exam's subjects get review boxes. Every milestone (also passed ones) and the target exam
+   * count as a test in each of their subjects. Returns null when there is nothing to plan yet.
+   */
+  function buildPeriod(state) {
+    var sea = buildSeason(state);
+    if (!sea.period) return null;
+    var stopTests = [];
+    sea.milestones.filter(function (m) { return sea.late.indexOf(m) < 0; })
+      .concat(sea.target ? [sea.target] : []).forEach(function (m) {
+        m.subjects.forEach(function (s) {
+          stopTests.push({ id: m.id + '|' + subjectKey(s), subject: s, date: m.date, slot: 'auto',
+            stop: { id: m.id, type: m.type, name: m.name, isTarget: m.isTarget } });
+        });
+      });
+    var p = plan(state, { horizon: dayDiff(state.start, sea.period.last) + 1, priority: sea.subjects, stopTests: stopTests });
+    p.season = sea;
+    p.period = sea.period;
+    return p;
+  }
+
   return {
     HORIZON: HORIZON, DAILY_CAP: DAILY_CAP, PRETEST_WEIGHT: PRETEST_WEIGHT, SLOTS: SLOTS, PERIOD_MAX: PERIOD_MAX,
-    buildSeason: buildSeason, uniqueSubjects: uniqueSubjects,
+    buildSeason: buildSeason, buildPeriod: buildPeriod, suggestDates: suggestDates, uniqueSubjects: uniqueSubjects,
     buildPlan: buildPlan, subjectsInTimetable: subjectsInTimetable, splitSubjects: splitSubjects, subjectKey: subjectKey,
     addDays: addDays, dayDiff: dayDiff, weekday: weekday, mondayOf: mondayOf, todayIso: todayIso, parseDate: parseDate
   };

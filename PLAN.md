@@ -26,15 +26,31 @@ Way of working: 2 stages, show the owner each one.
   2. steps 3 (Exams) and 5 (Tests) looked the same → class tests merged into the Exams step; exam season now has 6 steps;
   3. the "more than 8 weeks" notice came too late → it now also shows on the Exams step (blue note, not a red warning).
   Also fixed: target-exam subjects are ticked on every milestone automatically; "Weeks left: N, days: N" wording.
-- **Stage 2: not started.** See below.
+- **Stage 2: done, owner testing.** Period calendar step (step 7) with all the rules below; PDF + PNG export
+  for the season map and the period calendar. First feedback round applied (see "Stage 2 feedback round").
+
+## Next (as of 2026-11-10)
+1. Owner keeps testing stage 2; apply further feedback.
+2. Owner translates the new `en` strings (exam season section of `js/strings.js`) to `ka`.
+3. Test on a real iPhone (Safari): sharing several PNGs at once, canvas size, print to PDF.
+4. Then merge `claude/epic-cori-aiec12` into `main` (the live site) once the owner approves.
+5. Open question for the owner: the 2-week "Test prep: <Subject>" label is cut before the subject in Georgian
+   (exam season already puts the subject first); change it there too?
 
 ## Verified so far
 - `node test/schedule.test.js` → 19 pass (the original 2-week rules, unchanged).
-- `node test/season.test.js` → 6 pass (season periods, 8-week cap, passed/late milestones).
+- `node test/season.test.js` → 7 pass (season periods, 8-week cap, passed/late milestones, suggested dates).
 - The 2-week printed layout produces byte-identical drawing operations before and after the `render.js` refactor
   (checked with a script that runs `Render.layout` under Node with a fake text measurer).
 - Clicked through in headless Chromium at iPhone and desktop sizes, Georgian and English: no console errors; Georgian renders on screen.
-- **Not yet checked:** Georgian in an exported PDF/PNG (export is stage 2). iOS Safari has not been tested.
+- Re-run all three test files after any change; the 2-week comparison scripts were one-off (scratch), not in the repo.
+- `node test/period.test.js` → 16 pass (the owner's 5 cases + R21, cumulative, sort errors, run-up on day off / before start, target run-up, mocks without practice test, milestone + 1 day).
+- 2-week mode after stage 2: `buildPlan` output identical to the previous commit on 3,000 random inputs (ignoring the internal
+  `rank` number and the new `mk` merge key), and `Render.layout` drawing operations identical on 600 layouts.
+- Headless Chromium (driven over CDP), Georgian UI: period calendar 2 pages, season map 1 page, 2-week 1 page in PDF;
+  **Noto Sans Georgian (regular + bold) embedded** in all three PDFs; PNGs (one per page) show Georgian. No console errors.
+- **Not yet checked:** iOS Safari (share sheet with several images, canvas limits); the real print dialog on a phone.
+- Known: a few symbols (→, …, !) fall back to a system font (Segoe UI on Windows) in the PDF. Same in the 2-week export before stage 2.
 
 ## Where things are
 - `js/schedule.js`: `buildPlan` (2-week rules, untouched) and `buildSeason(state)` (target, milestones sorted, `past`, `late`,
@@ -47,9 +63,37 @@ Way of working: 2 stages, show the owner each one.
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=7`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=12`).
+- Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
+  New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
+  Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;
+  `app.js` `pageOpts()` splits the period into 2-week pages; `pagesOps(what)` feeds print and PNG for 'cal', 'map', 'blank'.
 
-## Stage 2 to do
+## Stage 2 feedback round
+- Owner (testing stage 2): "the milestones should have date suggestions prefilled". This replaces the stage 1 decision
+  "empty rows, no dates". Now: `Schedule.suggestDates(start, target, n)` spreads n milestones evenly (k/(n+1) of the way),
+  Saturday → Friday, Sunday → Monday; none if there are under 2 weeks per milestone. Rows carry `suggested: true` and show
+  "Suggested date: change it to the real one." A date the student types is never changed; suggested dates follow the
+  start date, target date, and adding/removing rows. Suggestions go by row order and ignore typed dates in other rows.
+  Public holidays are not known (e.g. 1 January can be suggested).
+
+- Owner: "should mock exams have a practice test? aren't they the same thing?" → agreed. This changes approved rule 3/9:
+  **mock exams get only the pre-test box** (no practice test, no fix errors). Midterms, session exams, "other" milestones
+  and the target exam keep the full run-up. The legend shows "Practice test" only when the calendar has one.
+- Owner: the sort-errors box must be visible after the mock → **the period calendar runs to milestone + 1 day**
+  (`period.last` in `buildSeason`; not for the target exam or a capped period). The season map periods are unchanged.
+  The next period, planned from milestone + 1, shows the same sort-errors box on its first day (rule 8).
+- Owner: on the Topics step "Add the target exam date and its subjects first" showed although a date was set (no subjects
+  ticked). Now each step names what is missing: no date / date not after start / no subjects; Exams step warns too.
+
+## Small choices made in stage 2 (tell the owner)
+- Old-topics boxes skip that subject's own test/milestone day (otherwise the empty exam day is always the least loaded).
+- With equal load the earlier day wins (as approved), so old-topics boxes often sit together early in the week.
+- Pre-test box label in exam season reads "<Subject>: Test prep" (subject first): in Georgian the prefix is long and
+  three pre-test boxes before a mock were cut to the same text. The 2-week label is unchanged (it has the same issue in Georgian).
+- On the period calendar a milestone test reads e.g. "MOCK EXAM: Math"; a class test still reads "TEST: Math".
+
+## Stage 2 spec (built)
 Period calendar rules + export. Keep every existing rule (lesson chain +1/+3/+7, compression before tests, pre-test box,
 merge same subject/day, 4-box daily cap with warning, overflow moves later, first-free-slot placement), and add:
 1. **R21**: after R7, a review on day +21 if it falls before the next test or milestone in that subject; otherwise dropped.
@@ -102,5 +146,5 @@ Milestones and the target exam count as tests for each of their subjects, so com
 ## How to run it
 - Local server from the project folder: `py -m http.server 8000` (Windows) or `python3 -m http.server 8000`, then open http://localhost:8000
   and press Ctrl+F5 after changes.
-- Tests: `node test/schedule.test.js` and `node test/season.test.js`.
+- Tests: `node test/schedule.test.js`, `node test/season.test.js` and `node test/period.test.js`.
 - Owner's machine: Windows, PowerShell, repo at `D:\coding-projects\review-calendar`.

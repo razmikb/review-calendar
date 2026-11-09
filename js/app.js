@@ -8,7 +8,7 @@
   // Each mode has its own steps: [label key, view].
   var STEPS = {
     two: [['step1', viewStart], ['step2', viewClasses], ['step3', viewSubjects], ['step4', viewTests], ['step5', viewOff], ['step6', viewCalendar]],
-    season: [['step1', viewStart], ['step2', viewClasses], ['stepExams', viewExams], ['stepTopics', viewTopics], ['step5', viewOff], ['stepMap', viewMap]]
+    season: [['step1', viewStart], ['step2', viewClasses], ['stepExams', viewExams], ['stepTopics', viewTopics], ['step5', viewOff], ['stepMap', viewMap], ['stepPeriod', viewCalendar]]
   };
   function steps() { return STEPS[state.mode] || STEPS.two; }
   function season() { return state.mode === 'season'; }
@@ -51,7 +51,8 @@
   function lessonLabel(id) { return (state.lessonNames[id] || '').trim() || dm(lessonDate(id)); }
 
   // ---------- plan ----------
-  function plan() { return S.buildPlan(state); }
+  // Exam season: the period calendar (null until there is an exam date). Otherwise the 2-week plan.
+  function plan() { return season() ? S.buildPeriod(state) : S.buildPlan(state); }
   function renderOpts(p, blank) {
     return {
       plan: blank ? null : p, t: t, name: blank ? '' : state.name,
@@ -60,6 +61,25 @@
       lessonLabel: lessonLabel
     };
   }
+  // The period calendar is printed 2 weeks per A4 page.
+  function pageOpts(p) {
+    var weeks = p.days.length / 7, total = Math.ceil(weeks / 2), out = [];
+    for (var n = 0; n < total; n++) {
+      var o = renderOpts(p, false), from = n * 2, w = Math.min(2, weeks - from);
+      o.page = { from: from, weeks: w, n: n + 1, total: total };
+      o.season = true;
+      o.title = t('printPeriodTitle');
+      o.range = dayLabel(p.days[from * 7].date) + ' – ' + dayLabel(p.days[(from + w) * 7 - 1].date) +
+        (total > 1 ? '  ·  ' + t('printPage', { n: n + 1, total: total }) : '');
+      o.testLabel = testLabel;
+      out.push(o);
+    }
+    return out;
+  }
+  function testLabel(x) {
+    return (x.stop ? stopName(x.stop).toLocaleUpperCase() : t('printTest')) + ': ' + x.subject;
+  }
+  function stopDayName(x) { return x.stop ? stopName(x.stop) + ' ' + dayLabel(x.date) : dayLabel(x.date); }
 
   // ---------- views ----------
   function render() {
@@ -67,7 +87,8 @@
     var list = steps(), last = list.length - 1;
     if (!(state.step >= 0 && state.step <= last)) state.step = 0;
     var step = state.step;
-    var wide = step === last && (season() ? state.mapView : state.view) === 'grid';
+    var fn = list[step][1];
+    var wide = (fn === viewCalendar && state.view === 'grid') || (fn === viewMap && state.mapView === 'grid');
     var html = '<div class="page' + (wide ? ' wide' : '') + '">' +
       '<header class="top"><div class="brand"><h1>' + esc(t('appTitle')) + '</h1><p>' + esc(t('tagline')) + '</p></div>' +
       '<div class="lang" role="group" aria-label="' + esc(t('langLabel')) + '">' +
@@ -83,9 +104,13 @@
       '<div class="nav">' +
       (step > 0 ? '<button type="button" class="btn" data-action="go" data-step="' + (step - 1) + '">' + esc(t('back')) + '</button>' : '<span></span>') +
       (step < last ? '<button type="button" class="btn primary" data-action="go" data-step="' + (step + 1) + '">' +
-        esc(t(step === last - 1 ? (season() ? 'showSeasonMap' : 'showCalendar') : 'next')) + '</button>' : '') +
+        esc(t(nextLabel(list[step + 1][1]))) + '</button>' : '') +
       '</div></div>';
     app.innerHTML = html;
+  }
+
+  function nextLabel(view) {
+    return view === viewMap ? 'showSeasonMap' : view === viewCalendar ? (season() ? 'showPeriod' : 'showCalendar') : 'next';
   }
 
   function why(key) { return '<details class="why"><summary>' + esc(t('why')) + '</summary><p>' + esc(t(key)) + '</p></details>'; }
@@ -189,7 +214,7 @@
     var monday = S.mondayOf(state.start), first = S.dayDiff(monday, state.start), end = first + S.HORIZON;
     if (season()) {
       var per = S.buildSeason(state).period;
-      end = first + (per ? S.dayDiff(state.start, per.to) + 1 : S.HORIZON);
+      end = first + (per ? S.dayDiff(state.start, per.last) + 1 : S.HORIZON);
     }
     for (var i = 0; i < Math.ceil(end / 7) * 7; i++) {
       var d = S.addDays(monday, i);
@@ -206,7 +231,7 @@
   function explain(part, p) {
     var lessonD = part.lessons[0] ? dayLabel(lessonDate(part.lessons[0])) : '';
     var test = part.test ? p.tests.filter(function (x) { return x.id === part.test; })[0] : null;
-    var s = t('kind_' + part.kind, { date: lessonD, k: part.step, n: part.of, test: test ? dayLabel(test.date) : '' });
+    var s = t('kind_' + part.kind, { date: lessonD, k: part.step, n: part.of, test: test ? stopDayName(test) : '' });
     if (part.lessons.length === 1 && state.lessonNames[part.lessons[0]]) s += ': ' + state.lessonNames[part.lessons[0]];
     if (part.movedFrom) s += ' ' + t(part.movedFrom.why === 'cap' ? 'movedCap' : 'movedOff', { date: dayLabel(p.days[part.movedFrom.day].date) });
     return s;
@@ -214,7 +239,9 @@
 
   function boxWhat(b) {
     var bits = [];
+    var solo = { PT: 'printPracticeTest', FX: 'printFixErrors', SE: 'printSortErrors', CUM: 'printOldTopics' };
     b.parts.forEach(function (part) {
+      if (solo[part.kind]) { bits.push(t(solo[part.kind])); return; }
       if (part.kind === 'P') { bits.push(t('printPrep')); return; }
       if (part.kind === 'Q') { bits.push(t('printBeforeTest')); return; }
       part.lessons.forEach(function (id) { var l = lessonLabel(id); if (bits.indexOf(l) < 0) bits.push(l); });
@@ -222,18 +249,30 @@
     return bits.join(', ');
   }
 
+  function noteText(n) {
+    if (n.type === 'runupSkipped') return t('noteRunupSkipped', { subject: n.subject, stop: stopName(n.stop), date: dayLabel(n.date) });
+    var key = n.type === 'pushedOut' ? (season() ? 'notePushedOutPeriod' : 'notePushedOut') : 'noteDroppedOff';
+    return t(key, { subject: n.subject, date: dayLabel(n.date) });
+  }
+
   function viewCalendar() {
     var p = plan();
+    if (!p) return '<section class="panel"><h2>' + esc(t('periodHeading')) + '</h2>' + missingNote(S.buildSeason(state)) + '</section>';
     var today = S.todayIso();
     var overDays = p.days.filter(function (d) { return d.over; }).length;
-    var head = '<section class="panel"><h2>' + esc(t('calHeading')) + '</h2>' +
-      '<p class="muted">' + esc(t('calRange', { from: dayLabel(p.days[0].date), to: dayLabel(p.days[p.days.length - 1].date) })) + '</p>' +
-      (p.first ? '<p class="muted small">' + esc(t('calPlanNote', { from: dayLabel(p.days[p.first].date), to: dayLabel(p.days[p.end - 1].date) })) + '</p>' : '') +
-      (chosen().length ? '' : '<p class="warn">' + esc(t('noPriority')) + '</p>') +
+    var pages = season() ? pageOpts(p) : null;
+    var intro = season()
+      ? '<h2>' + esc(t('periodHeading')) + '</h2>' +
+        '<p>' + esc(t(p.period.last !== p.period.to ? 'periodRangeAfter' : 'periodRange', { from: dayLabel(p.period.from), to: dayLabel(p.period.last), stop: stopName(p.period.stop), date: dayLabel(p.period.to) })) + '</p>' +
+        (p.period.capped ? '<p class="note">' + esc(t('periodCapped')) + '</p>' : '') +
+        '<p class="muted small">' + esc(t('periodPages', { n: pages.length })) + ' ' + esc(t('periodNextTime')) + '</p>'
+      : '<h2>' + esc(t('calHeading')) + '</h2>' +
+        '<p class="muted">' + esc(t('calRange', { from: dayLabel(p.days[0].date), to: dayLabel(p.days[p.days.length - 1].date) })) + '</p>' +
+        (p.first ? '<p class="muted small">' + esc(t('calPlanNote', { from: dayLabel(p.days[p.first].date), to: dayLabel(p.days[p.end - 1].date) })) + '</p>' : '');
+    var head = '<section class="panel">' + intro +
+      (chosen().length ? '' : '<p class="warn">' + esc(t(season() ? 'needTargetSubjects' : 'noPriority')) + '</p>') +
       (overDays ? '<p class="warn">' + esc(t('overCapSummary', { n: overDays })) + '</p>' : '') +
-      p.notes.map(function (n) {
-        return '<p class="warn">' + esc(t(n.type === 'pushedOut' ? 'notePushedOut' : 'noteDroppedOff', { subject: n.subject, date: dayLabel(n.date) })) + '</p>';
-      }).join('') +
+      p.notes.map(function (n) { return '<p class="warn">' + esc(noteText(n)) + '</p>'; }).join('') +
       '<div class="row"><div class="view-toggle" role="group">' +
       '<button type="button" data-action="view" data-view="list" aria-pressed="' + (state.view === 'list') + '">' + esc(t('viewList')) + '</button>' +
       '<button type="button" data-action="view" data-view="grid" aria-pressed="' + (state.view === 'grid') + '">' + esc(t('viewGrid')) + '</button></div></div>' +
@@ -241,17 +280,19 @@
 
     var body;
     if (state.view === 'grid') {
-      body = '<div class="grid-wrap">' + R.toSVG(R.layout(renderOpts(p, false), measure)) + '</div>';
+      body = '<div class="grid-wrap">' + (pages || [renderOpts(p, false)]).map(function (o) { return R.toSVG(R.layout(o, measure)); }).join('') + '</div>';
     } else {
       body = '<div class="days">' + p.days.map(function (d) {
         var label = d.i % 7 === 0 ? '<p class="week-label">' + esc(dayLabel(d.date)) + ' – ' + esc(dayLabel(p.days[Math.min(d.i + 6, p.days.length - 1)].date)) + '</p>' : '';
-        var chips = d.tests.map(function (x) { return '<span class="cls test">' + esc(t('test')) + ' · ' + esc(x.subject) + ' · ' + esc(t('slot_' + x.slot)) + '</span>'; })
+        var chips = d.tests.map(function (x) { return '<span class="cls test">' + esc(x.stop ? stopName(x.stop) : t('test')) + ' · ' + esc(x.subject) + ' · ' + esc(t('slot_' + x.slot)) + '</span>'; })
           .concat(d.classes.map(function (c) { return '<span class="cls">' + esc(c.subject) + '</span>'; })).join('');
         var boxes = d.boxes.map(function (b) {
           var prep = b.parts.some(function (x) { return x.kind === 'P'; });
+          var k0 = b.parts[0].kind;
+          var cls = k0 === 'PT' ? ' practice' : k0 === 'CUM' ? ' cum' : prep ? ' prep' : '';
           var done = !!state.done[b.id];
           var cid = 'done-' + b.id.replace(/[^\w-]/g, '_');
-          return '<div class="box' + (prep ? ' prep' : '') + (done ? ' is-done' : '') + '">' +
+          return '<div class="box' + cls + (done ? ' is-done' : '') + '">' +
             '<label for="' + esc(cid) + '"><input type="checkbox" id="' + esc(cid) + '" data-done="' + esc(b.id) + '"' + (done ? ' checked' : '') + '>' +
             '<span><span class="subj">' + esc(b.subject) + '</span> <span class="slot">' + esc(t('slot_' + b.slot)) + '</span>' +
             '<span class="what">' + esc(boxWhat(b)) + '</span></span></label>' +
@@ -285,18 +326,23 @@
 
     var homework = '<section class="panel"><h3>' + esc(t('homeworkHeading')) + '</h3><p>' + esc(t('homeworkBody')) + '</p></section>';
 
-    var exp = '<section class="panel"><h3>' + esc(t('exportHeading')) + '</h3>' +
-      '<label class="field" for="name">' + esc(t('yourName')) + '<input type="text" id="name" data-field="name" value="' + esc(state.name) + '" autocomplete="off"></label>' +
-      '<div class="row"><button type="button" class="btn primary" data-action="print">' + esc(t('print')) + '</button>' +
-      '<button type="button" class="btn" data-action="png">' + esc(t('saveImage')) + '</button>' +
-      (navigator.share ? '<button type="button" class="btn" data-action="share">' + esc(t('shareImage')) + '</button>' : '') + '</div>' +
-      '<p class="muted small">' + esc(t('printHint')) + '</p>' +
-      (ui.status ? '<p class="status" role="status">' + esc(ui.status) + '</p>' : '') +
+    var exp = exportPanel('exportHeading', 'cal', pages ? pages.length : 1, season() ? '' :
       '<h3>' + esc(t('blankHeading')) + '</h3><p class="muted small">' + esc(t('blankBody')) + '</p>' +
-      '<div class="row"><button type="button" class="btn" data-action="print-blank">' + esc(t('printBlank')) + '</button>' +
-      '<button type="button" class="btn" data-action="png-blank">' + esc(t('saveBlank')) + '</button></div></section>';
+      '<div class="row"><button type="button" class="btn" data-action="print" data-what="blank">' + esc(t('printBlank')) + '</button>' +
+      '<button type="button" class="btn" data-action="png" data-what="blank">' + esc(t('saveBlank')) + '</button></div>');
 
     return head + body + rename + homework + exp;
+  }
+
+  // what: 'cal' (the calendar, every page), 'map' (season map) or 'blank' (empty 2-week template)
+  function exportPanel(heading, what, n, extra) {
+    return '<section class="panel"><h3>' + esc(t(heading)) + '</h3>' +
+      '<label class="field" for="name">' + esc(t('yourName')) + '<input type="text" id="name" data-field="name" value="' + esc(state.name) + '" autocomplete="off"></label>' +
+      '<div class="row"><button type="button" class="btn primary" data-action="print" data-what="' + what + '">' + esc(t('print')) + '</button>' +
+      '<button type="button" class="btn" data-action="png" data-what="' + what + '">' + esc(t(n > 1 ? 'saveImages' : 'saveImage')) + '</button>' +
+      (navigator.share ? '<button type="button" class="btn" data-action="share" data-what="' + what + '">' + esc(t(n > 1 ? 'shareImages' : 'shareImage')) + '</button>' : '') + '</div>' +
+      '<p class="muted small">' + esc(t('printHint')) + '</p>' +
+      (ui.status ? '<p class="status" role="status">' + esc(ui.status) + '</p>' : '') + (extra || '') + '</section>';
   }
 
   // ---------- exam season ----------
@@ -347,15 +393,17 @@
       '<div class="add-subject"><label class="field" for="tg-add">' + esc(t('addSubjectLabel')) +
       '<input type="text" id="tg-add" placeholder="' + esc(t('addSubjectPlaceholder')) + '" autocomplete="off"></label>' +
       '<button type="button" class="btn" data-action="tsub-add">' + esc(t('addSubject')) + '</button></div>' +
+      (tSubs.length ? '' : '<p class="warn">' + esc(t('needTargetSubjectsHere')) + '</p>') +
       (tSubs.length > 4 ? '<p class="warn">' + esc(t('subjectsTooMany', { n: tSubs.length })) + '</p>' : '') +
       '</div>';
 
     var rows = state.milestones.map(function (m) {
       var id = esc(m.id);
       var st = sea.milestones.filter(function (x) { return x.id === m.id; })[0];
-      var status = !m.date ? ['muted small', t('msNoDate')]
+      var status = !m.date ? ['muted small', t(tg.date ? 'msNoDate' : 'msNoDateYet')]
         : st.days <= 0 ? ['muted small', t('msPassed')]
         : sea.target && m.date >= sea.target.date ? ['warn', t('msAfterTarget')]
+        : m.suggested ? ['note', left(st) + '. ' + t('msSuggested')]
         : ['muted small', left(st)];
       return '<div class="exam">' +
         '<div class="exam-fields">' +
@@ -386,10 +434,21 @@
   var DEFAULT_MILESTONES = { national: ['mock', 'mock', 'mock'], session: ['midterm'], other: [] };
   function defaultMilestones() {
     // Only when the student has not typed any milestone date yet: never throw away their work.
-    if (state.milestones.some(function (m) { return m.date || m.name; })) return;
+    if (state.milestones.some(function (m) { return (m.date && !m.suggested) || m.name; })) return;
     var now = Date.now();
     state.milestones = (DEFAULT_MILESTONES[state.target.type] || []).map(function (type, i) {
       return { id: 'm' + now + i, type: type, name: '', date: '', subjects: chosen() };
+    });
+    suggestDates();
+  }
+  // Milestones without a typed date get a suggested one, spread evenly up to the target exam.
+  // A date the student typed is never changed.
+  function suggestDates() {
+    var dates = S.suggestDates(state.start, state.target.date, state.milestones.length);
+    state.milestones.forEach(function (m, i) {
+      if (m.date && !m.suggested) return;
+      m.date = dates[i] || '';
+      m.suggested = !!dates[i];
     });
   }
 
@@ -397,9 +456,18 @@
     return t('periodN', { n: p.n }) + ': ' + dm(p.from) + ' – ' + dm(p.to) + ' · ' + stopName(p.stop);
   }
 
+  // What is still missing on the Exams step, as a string key ('' when nothing is).
+  function missing(sea) {
+    if (!state.target.date) return 'needTargetDate';
+    if (!sea.target || sea.target.days <= 0) return 'needTargetFuture';
+    if (!sea.subjects.length) return 'needTargetSubjects';
+    return '';
+  }
+  function missingNote(sea) { var k = missing(sea); return k ? '<p class="warn">' + esc(t(k)) + '</p>' : ''; }
+
   function viewTopics() {
     var sea = S.buildSeason(state);
-    var body = !sea.periods.length || !sea.subjects.length ? '<p class="warn">' + esc(t('needTarget')) + '</p>'
+    var body = missing(sea) ? missingNote(sea)
       : sea.periods.map(function (p) {
           return '<div class="period"><h3>' + esc(periodTitle(p)) + '</h3>' + sea.subjects.map(function (s) {
             var id = 'tp-' + p.id + '-' + S.subjectKey(s).replace(/[^\w-]/g, '_');
@@ -415,15 +483,16 @@
   function viewMap() {
     var o = seasonOpts(false), sea = o.season;
     var head = '<section class="panel"><h2>' + esc(t('mapHeading')) + '</h2>' +
-      (sea.period ? '<p>' + esc(t('nextPeriod', { from: dayLabel(sea.period.from), to: dayLabel(sea.period.to), stop: stopName(sea.period.stop) })) + '</p>'
-        : '<p class="warn">' + esc(t('needTarget')) + '</p>') +
+      (sea.period ? '<p>' + esc(t('nextPeriod', { from: dayLabel(sea.period.from), to: dayLabel(sea.period.to), stop: stopName(sea.period.stop) })) + '</p>' : '') +
+      missingNote(sea) +
       (sea.period && sea.period.capped ? '<p class="note">' + esc(t('periodCapped')) + '</p>' : '') +
       sea.late.map(function (m) { return '<p class="warn">' + esc(stopName(m) + ' ' + fullDate(m.date) + ': ' + t('msAfterTarget')) + '</p>'; }).join('') +
       '<div class="row"><div class="view-toggle" role="group">' +
       '<button type="button" data-action="map-view" data-view="list" aria-pressed="' + (state.mapView !== 'grid') + '">' + esc(t('viewOverview')) + '</button>' +
       '<button type="button" data-action="map-view" data-view="grid" aria-pressed="' + (state.mapView === 'grid') + '">' + esc(t('viewPage')) + '</button></div></div></section>';
 
-    if (state.mapView === 'grid') return head + '<div class="grid-wrap">' + R.toSVG(R.layoutSeason(o, measure)) + '</div>';
+    var exp = exportPanel('mapExportHeading', 'map', 1);
+    if (state.mapView === 'grid') return head + '<div class="grid-wrap">' + R.toSVG(R.layoutSeason(o, measure)) + '</div>' + exp;
 
     var timeline = '<section class="panel"><h3>' + esc(t('timelineHeading')) + '</h3><ol class="timeline">' +
       '<li class="start"><b>' + esc(t('printStart')) + '</b><span>' + esc(dayLabel(sea.start)) + '</span></li>' +
@@ -446,7 +515,7 @@
         return '<li class="c-' + k.toLowerCase() + '"><b>' + esc(t('cycle' + k)) + '</b><span>' + esc(t('cycle' + k + 'When')) + '</span></li>';
       }).join('') + '</ol></section>';
 
-    return head + timeline + periods + cycle;
+    return head + timeline + periods + cycle + exp;
   }
 
   // ---------- export ----------
@@ -458,21 +527,41 @@
       document.fonts.load('700 16px "Noto Sans Georgian"', sample)
     ]).then(function () { return document.fonts.ready; }).catch(function () {});
   }
-  function ops(blank) { return R.layout(renderOpts(plan(), blank), measure); }
+  // The drawing operations of every page to export. what: 'cal', 'map' or 'blank'.
+  function pagesOps(what) {
+    if (what === 'map') return [R.layoutSeason(seasonOpts(false), measure)];
+    if (what === 'blank') return [R.layout(renderOpts(plan(), true), measure)];
+    var p = plan();
+    if (!p) return [];
+    return season() ? pageOpts(p).map(function (o) { return R.layout(o, measure); }) : [R.layout(renderOpts(p, false), measure)];
+  }
+  function fileBase(what) {
+    return what === 'blank' ? 'review-calendar-blank' : what === 'map' ? 'season-map-' + state.start
+      : (season() ? 'period-calendar-' : 'review-calendar-') + state.start;
+  }
 
-  function doPrint(blank) {
+  // PDF: the browser prints the SVG pages, one A4 page each.
+  function doPrint(what) {
     fontsReady().then(function () {
-      document.getElementById('print-root').innerHTML = R.toSVG(ops(blank));
+      document.getElementById('print-root').innerHTML = pagesOps(what).map(R.toSVG).join('');
       window.print();
     });
   }
-  function pngBlob(blank) {
+  // PNG: one image per page (a long period as one tall image would be too big for phones).
+  function pngFiles(what) {
     return fontsReady().then(function () {
-      var cv = R.toCanvas(ops(blank), 2);
-      return new Promise(function (res, rej) { cv.toBlob(function (b) { b ? res(b) : rej(new Error('toBlob')); }, 'image/png'); });
+      var list = pagesOps(what), base = fileBase(what);
+      return Promise.all(list.map(function (o, i) {
+        var cv = R.toCanvas(o, 2);
+        return new Promise(function (res, rej) {
+          cv.toBlob(function (b) {
+            cv.width = cv.height = 0; // free the canvas memory right away (iOS)
+            b ? res(new File([b], base + (list.length > 1 ? '-' + (i + 1) : '') + '.png', { type: 'image/png' })) : rej(new Error('toBlob'));
+          }, 'image/png');
+        });
+      }));
     });
   }
-  function fileName(blank) { return blank ? 'review-calendar-blank.png' : 'review-calendar-' + state.start + '.png'; }
   function download(blob, name) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -480,16 +569,20 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
   }
-  function savePng(blank) {
-    pngBlob(blank).then(function (b) { download(b, fileName(blank)); }).catch(failed);
+  function downloadAll(files) {
+    files.forEach(function (f, i) { setTimeout(function () { download(f, f.name); }, i * 400); });
   }
-  function sharePng() {
-    pngBlob(false).then(function (b) {
-      var file = new File([b], fileName(false), { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        return navigator.share({ files: [file], title: t('printTitle') }).catch(function (e) { if (e && e.name !== 'AbortError') download(b, file.name); });
+  function savePng(what) {
+    pngFiles(what).then(downloadAll).catch(failed);
+  }
+  // On phones all pages go to the share sheet at once.
+  function sharePng(what) {
+    pngFiles(what).then(function (files) {
+      if (navigator.canShare && navigator.canShare({ files: files })) {
+        return navigator.share({ files: files, title: t(what === 'map' ? 'printSeasonTitle' : season() ? 'printPeriodTitle' : 'printTitle') })
+          .catch(function (e) { if (e && e.name !== 'AbortError') downloadAll(files); });
       }
-      download(b, file.name);
+      downloadAll(files);
     }).catch(failed);
   }
   function failed() { ui.status = t('imageFailed'); render(); }
@@ -570,10 +663,12 @@
     }
     else if (a === 'add-ms') {
       state.milestones.push({ id: 'm' + Date.now(), type: state.target.type === 'session' ? 'midterm' : 'mock', name: '', date: '', subjects: chosen() });
+      suggestDates();
     }
     else if (a === 'remove-ms') {
       var mid = el.getAttribute('data-id');
       state.milestones = state.milestones.filter(function (x) { return x.id !== mid; });
+      suggestDates();
     }
     else if (a === 'map-view') state.mapView = el.getAttribute('data-view');
     else if (a === 'subject') {
@@ -595,11 +690,9 @@
       if (i >= 0) state.daysOff.splice(i, 1); else state.daysOff.push(d);
     }
     else if (a === 'view') state.view = el.getAttribute('data-view');
-    else if (a === 'print') { doPrint(false); return; }
-    else if (a === 'print-blank') { doPrint(true); return; }
-    else if (a === 'png') { savePng(false); return; }
-    else if (a === 'png-blank') { savePng(true); return; }
-    else if (a === 'share') { sharePng(); return; }
+    else if (a === 'print') { doPrint(el.getAttribute('data-what')); return; }
+    else if (a === 'png') { savePng(el.getAttribute('data-what')); return; }
+    else if (a === 'share') { sharePng(el.getAttribute('data-what')); return; }
     save(); render();
   });
 
@@ -630,13 +723,17 @@
     var el = e.target;
     if (el.getAttribute('data-field') === 'start') {
       if (el.value) state.start = el.value;
+      if (season()) suggestDates();
     } else if (el.hasAttribute('data-tg')) {
       if (el.getAttribute('data-tg') === 'name') return;
       state.target[el.getAttribute('data-tg')] = el.value;
       if (el.getAttribute('data-tg') === 'type') defaultMilestones();
+      if (el.getAttribute('data-tg') === 'date') suggestDates();
     } else if (el.hasAttribute('data-ms')) {
       if (el.getAttribute('data-key') === 'name') return;
-      msById(el.getAttribute('data-ms'))[el.getAttribute('data-key')] = el.value;
+      var msRow = msById(el.getAttribute('data-ms'));
+      msRow[el.getAttribute('data-key')] = el.value;
+      if (el.getAttribute('data-key') === 'date') msRow.suggested = false; // typed by the student: keep it
     } else if (el.hasAttribute('data-test')) {
       var x = state.tests.filter(function (q) { return q.id === el.getAttribute('data-test'); })[0];
       if (x) x[el.getAttribute('data-key')] = el.value;
@@ -653,5 +750,5 @@
 
   render();
   // Redraw once the Georgian font has loaded so measured text in the grid is right.
-  fontsReady().then(function () { if (state.step === 5 && state.view === 'grid') render(); });
+  fontsReady().then(function () { if (app.querySelector('.grid-wrap')) render(); });
 })();

@@ -74,4 +74,19 @@ test('no target date: no periods', function () {
   assert.strictEqual(none.periods.length, 0);
 });
 
+test('suggested milestone dates: evenly spread, on weekdays, none when too close', function () {
+  // 210 days to the national exams, 3 mocks -> about 52, 105, 158 days in
+  var d = S.suggestDates(START, '2027-06-07', 3);
+  assert.strictEqual(d.length, 3);
+  d.forEach(function (x) { assert.ok(S.weekday(x) < 5, x + ' is a weekday'); });
+  assert.deepStrictEqual(d.map(function (x) { return S.dayDiff(START, x); }).map(function (n) { return Math.round(n / 7); }), [8, 15, 23]);
+  // A midterm halfway to session exams 2 months away
+  var m = S.suggestDates(START, '2027-01-11', 1);
+  assert.strictEqual(m.length, 1);
+  assert.ok(Math.abs(S.dayDiff(START, m[0]) - 31) <= 1);
+  // Too close: 3 mocks need at least 8 weeks
+  assert.deepStrictEqual(S.suggestDates(START, '2026-12-20', 3), []);
+  assert.deepStrictEqual(S.suggestDates(START, '', 1), []);
+});
+
 console.log('\n' + passed + ' tests passed');

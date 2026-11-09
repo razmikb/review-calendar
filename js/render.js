@@ -64,11 +64,16 @@
     return { ops: ops, rect: rect, line: line, text: text, fit: fit, wrap: wrap, header: header };
   }
 
+  /*
+   * o.page = { from: first week index, weeks: 1 or 2, n, total } draws one page of a longer exam season period.
+   * o.season adds the exam season boxes and legend; o.testLabel(test) labels tests and milestones.
+   */
   function layout(o, measure) {
     var t = o.t, plan = o.plan, blank = !plan;
     var P = painter(measure, t), ops = P.ops, rect = P.rect, line = P.line, text = P.text;
     // 2 weeks when the plan starts on a Monday (and for the blank template), else 3 in a tighter layout.
-    var weeks = plan ? plan.days.length / 7 : 2, tight = weeks > 2;
+    var weeks = o.page ? o.page.weeks : plan ? plan.days.length / 7 : 2, tight = weeks > 2;
+    var dayOffset = o.page ? o.page.from * 7 : 0;
     var M = 36, LW = 58, legendH = 84;
     var colW = (W - 2 * M - LW) / 7;
     var gridTop = M + 44, gap = tight ? 8 : 14;
@@ -78,7 +83,7 @@
     var ih = tight ? 16 : 19, step = tight ? 18 : 22, itemSize = tight ? 12 : 13;
 
     // Title row
-    P.header(t('printTitle'), blank ? '' : o.range, o.name);
+    P.header(o.title || t('printTitle'), blank ? '' : o.range, o.name);
 
     for (var week = 0; week < weeks; week++) {
       var top = gridTop + week * (GH + gap);
@@ -92,7 +97,7 @@
       text(M + LW / 2, top + HH + 3 * rowH + cntY, t('printBoxes'), { size: tight ? 10 : 11, anchor: 'middle', fill: GREY });
 
       for (var c = 0; c < 7; c++) {
-        var di = week * 7 + c;
+        var di = dayOffset + week * 7 + c;
         var day = plan ? plan.days[di] : null;
         var cx = x0 + c * colW;
         if (day && day.off) rect(cx, top + HH, colW, 3 * rowH, { fill: OFF });
@@ -118,7 +123,7 @@
     function drawCell(day, slot, cx, cy) {
       var items = [];
       var testKeys = {};
-      day.tests.forEach(function (tt) { if (tt.slot === slot) { items.push({ type: 'test', label: t('printTest') + ': ' + tt.subject }); testKeys[tt.key] = true; } });
+      day.tests.forEach(function (tt) { if (tt.slot === slot) { items.push({ type: 'test', label: o.testLabel ? o.testLabel(tt) : t('printTest') + ': ' + tt.subject }); testKeys[tt.key] = true; } });
       day.classes.forEach(function (cl) { if (cl.slot === slot && !testKeys[cl.key]) items.push({ type: 'class', label: cl.subject }); });
       day.boxes.forEach(function (b) { if (b.slot === slot) items.push(boxItem(b)); });
       var pad = 5, ty = ih - 5;
@@ -134,11 +139,15 @@
           rect(x, y, iw, ih, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
           text(x + 6, y + ty, it.label, { size: itemSize, fill: C.cls.text, maxW: iw - 10 });
         } else {
-          var c = it.prep ? C.prep : C.review;
-          rect(x, y, iw, ih, { stroke: c.stroke, sw: it.prep ? 3 : 1.5, fill: c.fill, r: 2 });
+          // heavy = test prep / practice test, dotted = old topics, solid = every other review
+          var c = it.practice ? C.practice : it.cum ? C.cum : it.prep ? C.prep : C.review;
+          var heavy = it.prep || it.practice;
+          var st = { stroke: c.stroke, sw: heavy ? 3 : it.cum ? 2 : 1.5, fill: c.fill, r: 2 };
+          if (it.cum) st.dash = [1.5, 3];
+          rect(x, y, iw, ih, st);
           var tb = ih - 8;
           rect(x + 5, y + 4, tb, tb, { stroke: INK, sw: 1.2, fill: WHITE });
-          text(x + 10 + tb, y + ty, it.label, { size: itemSize, bold: it.prep, fill: c.text, maxW: iw - 14 - tb });
+          text(x + 10 + tb, y + ty, it.label, { size: itemSize, bold: heavy, fill: c.text, maxW: iw - 14 - tb });
         }
       });
       if (shown.length < items.length) {
@@ -147,6 +156,11 @@
     }
 
     function boxItem(b) {
+      var k = b.parts[0].kind;
+      if (k === 'PT') return { type: 'box', practice: true, label: t('printPracticeTest') + ': ' + b.subject };
+      if (k === 'FX') return { type: 'box', label: t('printFixErrors') + ': ' + b.subject };
+      if (k === 'SE') return { type: 'box', label: t('printSortErrors') + ': ' + b.subject };
+      if (k === 'CUM') return { type: 'box', cum: true, label: b.subject + ': ' + t('printOldTopics') };
       var prep = b.parts.some(function (p) { return p.kind === 'P'; });
       var bits = [];
       b.parts.forEach(function (p) {
@@ -154,7 +168,9 @@
         if (p.kind === 'Q') { bits.push(t('printBeforeTest')); return; }
         p.lessons.forEach(function (id) { var l = o.lessonLabel(id); if (bits.indexOf(l) < 0) bits.push(l); });
       });
-      var label = (prep ? t('printPrep') + ': ' : '') + b.subject + (bits.length ? ' · ' + bits.join(', ') : '');
+      // Exam season: subject first, so several test-prep boxes on one day stay readable when cut short.
+      var label = prep && o.season ? b.subject + ': ' + t('printPrep') + (bits.length ? ' · ' + bits.join(', ') : '')
+        : (prep ? t('printPrep') + ': ' : '') + b.subject + (bits.length ? ' · ' + bits.join(', ') : '');
       return { type: 'box', prep: prep, label: label };
     }
 
@@ -165,16 +181,23 @@
       if (kind === 'class') rect(lx2, ly, sw, 18, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
       if (kind === 'review') { rect(lx2, ly, sw, 18, { stroke: C.review.stroke, sw: 1.5, fill: C.review.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
       if (kind === 'prep') { rect(lx2, ly, sw, 18, { stroke: C.prep.stroke, sw: 3, fill: C.prep.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
+      if (kind === 'practice') { rect(lx2, ly, sw, 18, { stroke: C.practice.stroke, sw: 3, fill: C.practice.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
+      if (kind === 'cum') { rect(lx2, ly, sw, 18, { stroke: C.cum.stroke, sw: 2, dash: [1.5, 3], fill: C.cum.fill, r: 2 }); rect(lx2 + 5, ly + 4, 10, 10, { stroke: INK, sw: 1.2, fill: WHITE }); }
       if (kind === 'test') rect(lx2, ly, sw, 18, { fill: C.test.fill, r: 2 });
       text(lx2 + sw + 8, ly + 14, label, { size: 14 });
-      lx2 += sw + 8 + measure(label, 14, false) + 30;
+      lx2 += sw + 8 + measure(label, 14, false) + (o.season ? 22 : 30);
     }
     legendItem('class', t('legendClass'));
     legendItem('review', t('legendReview'));
     legendItem('prep', t('legendPrep'));
-    legendItem('test', t('legendTest'));
+    if (o.season) {
+      // Mock exams get no practice test: show it in the legend only when the calendar has one.
+      if (plan.days.some(function (d) { return d.boxes.some(function (b) { return b.parts[0].kind === 'PT'; }); })) legendItem('practice', t('legendPractice'));
+      legendItem('cum', t('legendCum'));
+    }
+    legendItem('test', t(o.season ? 'legendExam' : 'legendTest'));
     text(M, ly + 44, t('legendRule'), { size: 16, bold: true, maxW: W - 2 * M });
-    text(M, ly + 68, t('legendCap'), { size: 14, maxW: W - 2 * M - 260 });
+    text(M, ly + 68, t(o.season ? 'legendCapSeason' : 'legendCap'), { size: 14, maxW: W - 2 * M - 260 });
     text(W - M, ly + 68, t('footer'), { size: 12, fill: GREY, anchor: 'end' });
 
     return ops;

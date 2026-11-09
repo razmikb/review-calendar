@@ -184,7 +184,8 @@ details.why p { margin-top: 6px; font-size: 0.9rem; color: var(--muted); }
 .cls { font-size: 0.78rem; border: 1px dashed var(--muted); border-radius: 4px; padding: 0 6px; color: var(--muted); }
 .cls.test { border: 0; background: var(--test); color: var(--test-ink); font-weight: 700; }
 .box { border: 1.5px solid var(--ink); border-radius: 6px; padding: 8px 10px; display: grid; gap: 4px; }
-.box.prep { border-width: 3px; }
+.box.prep, .box.practice { border-width: 3px; }
+.box.cum { border-style: dotted; border-width: 2.5px; }
 .box.is-done { opacity: 0.55; }
 .box label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 .box input[type="checkbox"] { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
@@ -197,6 +198,7 @@ details.why p { margin-top: 6px; font-size: 0.9rem; color: var(--muted); }
 /* Calendar: full grid */
 .grid-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
 .grid-wrap svg { display: block; width: 100%; min-width: 860px; height: auto; }
+.grid-wrap svg + svg { border-top: 1px solid var(--line); }
 
 /* Rename list */
 .lessons { display: grid; gap: 6px; }
@@ -245,5 +247,6 @@ details.why p { margin-top: 6px; font-size: 0.9rem; color: var(--muted); }
   html, body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #app { display: none !important; }
   #print-root { display: block !important; }
-  #print-root svg { display: block; width: 297mm; height: 209mm; }
+  #print-root svg { display: block; width: 297mm; height: 209mm; break-after: page; page-break-after: always; }
+  #print-root svg:last-child { break-after: auto; page-break-after: auto; }
 }

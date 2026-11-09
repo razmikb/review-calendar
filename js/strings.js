@@ -171,7 +171,7 @@ window.STRINGS = {
 
     // Step 3: exams
     examsHeading: 'Your exams',
-    examsBody: 'Add the big exam you are working toward, then the smaller exams on the way. Type the dates yourself and check them with your school or university.',
+    examsBody: 'Add the big exam you are working toward, then the smaller exams on the way. Check every date with your school or university.',
     targetHeading: 'Target exam',
     targetType: 'Exam',
     tgType_national: 'National exams',
@@ -188,7 +188,7 @@ window.STRINGS = {
     targetNoDate: 'Add the date of the target exam.',
     targetPassed: 'This date is on or before the start date.',
     milestonesHeading: 'Milestones',
-    milestonesBody: 'Mock exams, midterms or session exams before the target exam. Each one ends a period. Type each date yourself, and remove the rows you do not need.',
+    milestonesBody: 'Mock exams, midterms or session exams before the target exam. Each one ends a period. Once the target exam has a date, the milestones get suggested dates spread evenly until then. Change them to the real dates, and remove the rows you do not need.',
     classTestsHeading: 'Class tests and quizzes',
     classTestsBody: 'Smaller tests in class, like quizzes or chapter tests. They do not start a new period, but the day before each one gets a test-prep box.',
     milestonesEmpty: 'No milestones. The plan then runs straight to the target exam.',
@@ -201,6 +201,8 @@ window.STRINGS = {
     msType_other: 'Other',
     milestoneSubjects: 'Subjects on this milestone',
     msNoDate: 'Type the date, or remove this row.',
+    msNoDateYet: 'A date is suggested once the target exam has a date. You can also type it now.',
+    msSuggested: 'Suggested date: change it to the real one.',
     msPassed: 'Already passed.',
     msAfterTarget: 'This is on or after the target exam, so it is not used.',
     pickTargetFirst: 'Choose the subjects of the target exam first.',
@@ -215,6 +217,10 @@ window.STRINGS = {
     periodN: 'Period {n}',
     onExam: 'On this exam',
     needTarget: 'Add the target exam date and its subjects first (Exams step).',
+    needTargetDate: 'Add the date of the target exam first (Exams step).',
+    needTargetFuture: 'The target exam date is on or before the start date. Change one of them (Exams step or Start).',
+    needTargetSubjects: 'Tap the subjects of the target exam first (Exams step).',
+    needTargetSubjectsHere: 'Tap at least one subject: only these get review boxes and topics.',
 
     // Step 7: season map
     mapHeading: 'Your season map',
@@ -238,7 +244,36 @@ window.STRINGS = {
     // Printed season map
     printSeasonTitle: 'My exam season',
     printStart: 'Start',
-    printOnExam: 'ON EXAM'
+    printOnExam: 'ON EXAM',
+    mapExportHeading: 'Save the season map',
+
+    // Step 7: period calendar
+    stepPeriod: 'Period calendar',
+    showPeriod: 'Show my period calendar',
+    periodHeading: 'Your period calendar',
+    periodRange: '{from} – {to}, until {stop}',
+    periodRangeAfter: '{from} – {to}: until {stop} on {date}, plus the day after to sort its errors.',
+    periodPages: 'Printed as {n} A4 pages, 2 weeks per page.',
+    periodNextTime: 'When this period ends, come back, set the start date to that day and plan the next period.',
+    kind_R21: '4th review, 21 days after the lesson on {date}',
+    kind_PT: 'Practice test for {test}: timed, closed book, like the real exam. Counts as 2 boxes.',
+    kind_FX: 'Fix the errors from the practice test: redo every wrong answer from memory.',
+    kind_SE: 'Sort the errors from {test}: why was each one wrong? Not known, forgot, or careless? Make a list to fix.',
+    kind_CUM: 'Old topics: recall something from earlier weeks or before this period, from memory.',
+    notePushedOutPeriod: '{subject}: a review from {date} did not fit in this period. Add it when you plan the next period.',
+    noteRunupSkipped: '{subject}: some practice boxes before {stop} on {date} would fall before the start date, so they are left out.',
+    printPeriodTitle: 'My period calendar',
+    printPage: 'page {n} / {total}',
+    printPracticeTest: 'Practice test',
+    printFixErrors: 'Fix errors',
+    printSortErrors: 'Sort errors',
+    printOldTopics: 'old topics',
+    legendPractice: 'Practice test (= 2)',
+    legendCum: 'Old topics',
+    legendExam: 'Test / exam',
+    legendCapSeason: 'Up to 4 boxes a day. Practice tests and exam boxes never move. Tick each box when done.',
+    shareImages: 'Share images',
+    saveImages: 'Save as images'
   },
 
   ka: {
