@@ -16,22 +16,14 @@
     cls: { stroke: '#3f6aa8', fill: '#eaf1fb', text: '#1b365d' },
     review: { stroke: '#2e7d32', fill: '#e4f3e5', text: INK },
     prep: { stroke: '#e07b00', fill: '#fff2dd', text: INK },
-    test: { fill: '#c62828', text: WHITE }
+    test: { fill: '#c62828', text: WHITE },
+    practice: { stroke: '#8e24aa', fill: '#f6e8fa', text: INK },
+    cum: { stroke: '#6d4c41', fill: '#f5efe9', text: INK }
   };
 
-  function layout(o, measure) {
-    var t = o.t, plan = o.plan, blank = !plan;
+  // Drawing helpers shared by every printable page: they append to one list of operations.
+  function painter(measure, t) {
     var ops = [];
-    // 2 weeks when the plan starts on a Monday (and for the blank template), else 3 in a tighter layout.
-    var weeks = plan ? plan.days.length / 7 : 2, tight = weeks > 2;
-    var M = 36, LW = 58, legendH = 84;
-    var colW = (W - 2 * M - LW) / 7;
-    var gridTop = M + 44, gap = tight ? 8 : 14;
-    var GH = (H - M - legendH - 12 - gap * (weeks - 1) - gridTop) / weeks;
-    var HH = tight ? 26 : 34, CH = tight ? 20 : 26, rowH = (GH - HH - CH) / 3;
-    var headSize = tight ? 13 : 15, cntSize = tight ? 11 : 13, cntY = CH - (tight ? 6 : 8);
-    var ih = tight ? 16 : 19, step = tight ? 18 : 22, itemSize = tight ? 12 : 13;
-
     function rect(x, y, w, h, s) { ops.push(Object.assign({ t: 'rect', x: x, y: y, w: w, h: h }, s)); }
     function line(x1, y1, x2, y2, s) { ops.push(Object.assign({ t: 'line', x1: x1, y1: y1, x2: x2, y2: y2 }, s)); }
     function text(x, y, str, s) {
@@ -45,19 +37,48 @@
       while (str.length > 1 && measure(str + '…', size, bold) > maxW) str = str.slice(0, -1);
       return str.replace(/[\s·,:]+$/, '') + '…';
     }
+    // Split text into lines no wider than maxW; the last allowed line ends in … if text is left over.
+    function wrap(str, size, bold, maxW, maxLines) {
+      var words = String(str).split(/\s+/).filter(Boolean), lines = [], cur = '';
+      for (var i = 0; i < words.length; i++) {
+        var next = cur ? cur + ' ' + words[i] : words[i];
+        if (!cur || measure(next, size, bold) <= maxW) { cur = next; continue; }
+        lines.push(cur); cur = words[i];
+        if (lines.length === maxLines) { cur = ''; lines[maxLines - 1] = fit(lines[maxLines - 1] + ' ' + words.slice(i).join(' '), size, bold, maxW); break; }
+      }
+      if (cur) lines.push(fit(cur, size, bold, maxW));
+      return lines;
+    }
+    // Title on the left, a line to write your name on the right.
+    function header(title, sub, name) {
+      var M = 36;
+      text(M, M + 24, title, { size: 26, bold: true });
+      if (sub) text(M + measure(title, 26, true) + 16, M + 24, sub, { size: 16, fill: GREY });
+      var nameLabel = t('printName') + ':';
+      var nx = W - M - 330;
+      text(nx, M + 24, nameLabel, { size: 16 });
+      var lx = nx + measure(nameLabel, 16, false) + 8;
+      line(lx, M + 28, W - M, M + 28, { stroke: INK, sw: 1 });
+      if (name) text(lx + 6, M + 22, name, { size: 17, bold: true, maxW: W - M - lx - 10 });
+    }
+    return { ops: ops, rect: rect, line: line, text: text, fit: fit, wrap: wrap, header: header };
+  }
+
+  function layout(o, measure) {
+    var t = o.t, plan = o.plan, blank = !plan;
+    var P = painter(measure, t), ops = P.ops, rect = P.rect, line = P.line, text = P.text;
+    // 2 weeks when the plan starts on a Monday (and for the blank template), else 3 in a tighter layout.
+    var weeks = plan ? plan.days.length / 7 : 2, tight = weeks > 2;
+    var M = 36, LW = 58, legendH = 84;
+    var colW = (W - 2 * M - LW) / 7;
+    var gridTop = M + 44, gap = tight ? 8 : 14;
+    var GH = (H - M - legendH - 12 - gap * (weeks - 1) - gridTop) / weeks;
+    var HH = tight ? 26 : 34, CH = tight ? 20 : 26, rowH = (GH - HH - CH) / 3;
+    var headSize = tight ? 13 : 15, cntSize = tight ? 11 : 13, cntY = CH - (tight ? 6 : 8);
+    var ih = tight ? 16 : 19, step = tight ? 18 : 22, itemSize = tight ? 12 : 13;
 
     // Title row
-    text(M, M + 24, t('printTitle'), { size: 26, bold: true });
-    if (!blank) {
-      var tw = measure(t('printTitle'), 26, true);
-      text(M + tw + 16, M + 24, o.range, { size: 16, fill: GREY });
-    }
-    var nameLabel = t('printName') + ':';
-    var nx = W - M - 330;
-    text(nx, M + 24, nameLabel, { size: 16 });
-    var lx = nx + measure(nameLabel, 16, false) + 8;
-    line(lx, M + 28, W - M, M + 28, { stroke: INK, sw: 1 });
-    if (o.name) text(lx + 6, M + 22, o.name, { size: 17, bold: true, maxW: W - M - lx - 10 });
+    P.header(t('printTitle'), blank ? '' : o.range, o.name);
 
     for (var week = 0; week < weeks; week++) {
       var top = gridTop + week * (GH + gap);
@@ -159,6 +180,121 @@
     return ops;
   }
 
+  /*
+   * The season map: one A4 landscape page.
+   * o = { t, season (Schedule.buildSeason), name, fmtDate(iso), stopName(stop), left(stop), topics(periodId, subject) }
+   * The 4-step cycle at the bottom uses the calendar's box outlines:
+   *   Understand = dashed (class), Recall = solid (review), Space = dotted (old topics), Simulate = heavy (practice test).
+   */
+  function layoutSeason(o, measure) {
+    var t = o.t, sea = o.season;
+    var P = painter(measure, t), rect = P.rect, line = P.line, text = P.text;
+    var M = 36;
+    P.header(t('printSeasonTitle'), sea.target ? o.fmtDate(sea.start) + ' – ' + o.fmtDate(sea.target.date) : '', o.name);
+
+    // ---- Timeline: start → milestones → target, spaced by date but never closer than G ----
+    var stops = sea.stops;
+    var n = stops.length;
+    var G = Math.min(200, (W - 2 * M) / (n + 1));
+    var x0 = M + G / 2, x1 = W - M - G / 2;
+    var ly = 150;
+    var total = n ? stops[n - 1].days : 1;
+    var xs = stops.map(function (s) { return x0 + (x1 - x0) * s.days / total; });
+    for (var i = 0; i < n; i++) xs[i] = Math.max(xs[i], (i ? xs[i - 1] : x0) + G);
+    for (i = n - 1; i >= 0; i--) xs[i] = Math.min(xs[i], i === n - 1 ? x1 : xs[i + 1] - G);
+    text(M, 100, t('timelineHeading'), { size: 16, bold: true });
+    line(x0, ly, n ? xs[n - 1] : x1, ly, { stroke: INK, sw: 3 });
+    // start
+    rect(x0 - 7, ly - 7, 14, 14, { fill: GREY, r: 7 });
+    text(x0, ly + 30, t('printStart'), { size: 15, bold: true, anchor: 'middle', maxW: G - 10 });
+    text(x0, ly + 50, o.fmtDate(sea.start), { size: 14, anchor: 'middle' });
+    stops.forEach(function (s, k) {
+      var x = xs[k], prev = k ? xs[k - 1] : x0;
+      text((prev + x) / 2, ly - 12, t('periodN', { n: k + 1 }), { size: 13, fill: GREY, anchor: 'middle', maxW: x - prev - 30 });
+      if (s.isTarget) rect(x - 12, ly - 12, 24, 24, { fill: INK, r: 3 });
+      else rect(x - 9, ly - 9, 18, 18, { fill: WHITE, stroke: INK, sw: 3, r: 9 });
+      text(x, ly + 30, o.stopName(s), { size: 15, bold: true, anchor: 'middle', maxW: G - 10 });
+      text(x, ly + 50, o.fmtDate(s.date), { size: 14, anchor: 'middle' });
+      text(x, ly + 69, o.left(s), { size: 13, fill: GREY, anchor: 'middle', maxW: G - 10 });
+    });
+    if (!n) text(x0 + 30, ly + 5, t('needTarget'), { size: 15, fill: GREY });
+
+    // ---- Table: subjects × periods ----
+    var cycleTop = H - M - 128;
+    var top = 262, bottom = cycleTop - 22;
+    text(M, top - 14, t('tableHeading'), { size: 16, bold: true });
+    var subs = sea.subjects, periods = sea.periods;
+    var SW = 190, HH = 52;
+    var cols = Math.max(1, periods.length);
+    var cw = (W - 2 * M - SW) / cols;
+    var rows = Math.max(1, subs.length);
+    var rh = (bottom - top - HH) / rows;
+    var tableH = HH + rows * rh;
+    periods.forEach(function (p, c) {
+      var cx = M + SW + c * cw;
+      text(cx + 8, top + 21, t('periodN', { n: p.n }) + ' · ' + o.fmtDate(p.from) + ' – ' + o.fmtDate(p.to), { size: 14, bold: true, maxW: cw - 14 });
+      text(cx + 8, top + 41, '→ ' + o.stopName(p.stop), { size: 13, fill: GREY, maxW: cw - 14 });
+    });
+    var LH = 18, size = 14;
+    subs.forEach(function (subj, r) {
+      var y = top + HH + r * rh;
+      P.wrap(subj, 15, true, SW - 16, Math.max(1, Math.floor((rh - 10) / 19))).forEach(function (l, k) {
+        text(M + 8, y + 22 + k * 19, l, { size: 15, bold: true });
+      });
+      periods.forEach(function (p, c) {
+        var cx = M + SW + c * cw;
+        var onExam = p.stop.subjects.some(function (s) { return s === subj; });
+        var tagW = 0;
+        if (onExam) {
+          var tag = t('printOnExam');
+          tagW = measure(tag, 11, true) + 10;
+          rect(cx + cw - tagW - 6, y + 6, tagW, 17, { fill: INK, r: 2 });
+          text(cx + cw - tagW / 2 - 6, y + 19, tag, { size: 11, bold: true, fill: WHITE, anchor: 'middle' });
+        }
+        var topics = String(o.topics(p.id, subj) || '').split(/[,;\n]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+        var maxLines = Math.max(1, Math.floor((rh - 12) / LH));
+        if (!topics.length) {
+          // Empty cell: ruled lines to write on by hand.
+          for (var k = 1; k <= Math.min(8, maxLines - 1); k++) line(cx + 10, y + 8 + k * LH + 4, cx + cw - 12 - (k === 1 ? tagW : 0), y + 8 + k * LH + 4, { stroke: OFF, sw: 1 });
+          return;
+        }
+        var lines = [];
+        topics.forEach(function (tp) { P.wrap('• ' + tp, size, false, cw - 22, 3).forEach(function (l, j) { lines.push((j ? '   ' : '') + l); }); });
+        var firstW = cw - 22 - tagW - 4;
+        if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] = P.fit(lines[maxLines - 1] + ' …', size, false, cw - 22); }
+        lines.forEach(function (l, k) {
+          text(cx + 10, y + 21 + k * LH, l, { size: size, maxW: k === 0 ? firstW : cw - 22 });
+        });
+      });
+    });
+    // grid lines
+    rect(M, top, W - 2 * M, tableH, { stroke: INK, sw: 1.6 });
+    line(M, top + HH, W - M, top + HH, { stroke: INK, sw: 1.2 });
+    line(M + SW, top, M + SW, top + tableH, { stroke: INK, sw: 1.2 });
+    for (var c = 1; c < cols; c++) line(M + SW + c * cw, top, M + SW + c * cw, top + tableH, { stroke: GREY, sw: 0.8 });
+    for (var r = 1; r < rows; r++) line(M, top + HH + r * rh, W - M, top + HH + r * rh, { stroke: GREY, sw: 0.8 });
+    if (!subs.length) text(M + SW + 10, top + HH + 26, t('needTarget'), { size: 14, fill: GREY });
+
+    // ---- The 4-step cycle ----
+    text(M, cycleTop + 14, t('cycleHeading'), { size: 16, bold: true });
+    var steps = [
+      ['cycleUnderstand', { stroke: C.cls.stroke, sw: 1.6, dash: [6, 4], fill: C.cls.fill }],
+      ['cycleRecall', { stroke: C.review.stroke, sw: 1.8, fill: C.review.fill }],
+      ['cycleSpace', { stroke: C.cum.stroke, sw: 2.2, dash: [1.5, 4], fill: C.cum.fill }],
+      ['cycleSimulate', { stroke: C.practice.stroke, sw: 4, fill: C.practice.fill }]
+    ];
+    var AW = 40, bw = (W - 2 * M - 3 * AW) / 4, by = cycleTop + 28, bh = 74;
+    steps.forEach(function (s, k) {
+      var bx = M + k * (bw + AW);
+      rect(bx, by, bw, bh, Object.assign({ r: 4 }, s[1]));
+      text(bx + 14, by + 28, (k + 1) + '. ' + t(s[0]), { size: 18, bold: true, maxW: bw - 24 });
+      P.wrap(t(s[0] + 'When'), 13, false, bw - 28, 2).forEach(function (l, j) { text(bx + 14, by + 50 + j * 17, l, { size: 13 }); });
+      if (k < 3) text(bx + bw + AW / 2, by + bh / 2 + 10, '→', { size: 28, bold: true, anchor: 'middle' });
+    });
+    text(W - M, H - 12, t('footer'), { size: 12, fill: GREY, anchor: 'end' });
+    return P.ops;
+  }
+
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   function toSVG(ops) {
@@ -224,5 +360,5 @@
     };
   }
 
-  window.Render = { layout: layout, toSVG: toSVG, toCanvas: toCanvas, measurer: measurer, W: W, H: H };
+  window.Render = { layout: layout, layoutSeason: layoutSeason, toSVG: toSVG, toCanvas: toCanvas, measurer: measurer, W: W, H: H };
 })();

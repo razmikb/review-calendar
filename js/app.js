@@ -5,7 +5,13 @@
   'use strict';
   var S = window.Schedule, R = window.Render, STR = window.STRINGS;
   var KEY = 'charte-review-calendar-v1';
-  var STEPS = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'];
+  // Each mode has its own steps: [label key, view].
+  var STEPS = {
+    two: [['step1', viewStart], ['step2', viewClasses], ['step3', viewSubjects], ['step4', viewTests], ['step5', viewOff], ['step6', viewCalendar]],
+    season: [['step1', viewStart], ['step2', viewClasses], ['stepExams', viewExams], ['stepTopics', viewTopics], ['step4', viewTests], ['step5', viewOff], ['stepMap', viewMap]]
+  };
+  function steps() { return STEPS[state.mode] || STEPS.two; }
+  function season() { return state.mode === 'season'; }
   var app = document.getElementById('app');
   var measure = R.measurer();
   var ui = { confirmReset: false, flash: '', status: '' };
@@ -14,7 +20,9 @@
     var tt = {};
     for (var w = 0; w < 7; w++) tt[w] = { m: '', a: '', e: '' };
     return { v: 1, lang: 'ka', step: 0, start: S.todayIso(), timetable: tt, priority: [], tests: [], daysOff: [],
-      lessonNames: {}, done: {}, name: '', view: 'list' };
+      lessonNames: {}, done: {}, name: '', view: 'list',
+      // exam season mode
+      mode: 'two', target: { type: 'national', name: '', date: '', subjects: [] }, milestones: [], topics: {}, mapView: 'list' };
   }
   function load() {
     try {
@@ -56,21 +64,26 @@
   // ---------- views ----------
   function render() {
     document.documentElement.lang = state.lang;
+    var list = steps(), last = list.length - 1;
+    if (!(state.step >= 0 && state.step <= last)) state.step = 0;
     var step = state.step;
-    var html = '<div class="page' + (step === 5 && state.view === 'grid' ? ' wide' : '') + '">' +
+    var wide = step === last && (season() ? state.mapView : state.view) === 'grid';
+    var html = '<div class="page' + (wide ? ' wide' : '') + '">' +
       '<header class="top"><div class="brand"><h1>' + esc(t('appTitle')) + '</h1><p>' + esc(t('tagline')) + '</p></div>' +
       '<div class="lang" role="group" aria-label="' + esc(t('langLabel')) + '">' +
       '<button type="button" data-action="lang" data-lang="ka" aria-pressed="' + (state.lang === 'ka') + '">ქართ</button>' +
       '<button type="button" data-action="lang" data-lang="en" aria-pressed="' + (state.lang === 'en') + '">EN</button></div></header>' +
-      '<nav aria-label="' + esc(t('stepOf', { n: step + 1, total: STEPS.length })) + '"><ol class="steps">' +
-      STEPS.map(function (k, i) {
+      '<nav aria-label="' + esc(t('stepOf', { n: step + 1, total: list.length })) + '"><ol class="steps">' +
+      list.map(function (s, i) {
+        var k = s[0];
         return '<li><button type="button" data-action="go" data-step="' + i + '"' + (i === step ? ' aria-current="step"' : '') +
           (i < step ? ' class="done"' : '') + '><span class="n">' + (i + 1) + '</span><span class="lbl">' + esc(t(k)) + '</span></button></li>';
       }).join('') + '</ol></nav>' +
-      [viewStart, viewClasses, viewSubjects, viewTests, viewOff, viewCalendar][step]() +
+      list[step][1]() +
       '<div class="nav">' +
       (step > 0 ? '<button type="button" class="btn" data-action="go" data-step="' + (step - 1) + '">' + esc(t('back')) + '</button>' : '<span></span>') +
-      (step < 5 ? '<button type="button" class="btn primary" data-action="go" data-step="' + (step + 1) + '">' + esc(t(step === 4 ? 'showCalendar' : 'next')) + '</button>' : '') +
+      (step < last ? '<button type="button" class="btn primary" data-action="go" data-step="' + (step + 1) + '">' +
+        esc(t(step === last - 1 ? (season() ? 'showSeasonMap' : 'showCalendar') : 'next')) + '</button>' : '') +
       '</div></div>';
     app.innerHTML = html;
   }
@@ -78,7 +91,11 @@
   function why(key) { return '<details class="why"><summary>' + esc(t('why')) + '</summary><p>' + esc(t(key)) + '</p></details>'; }
 
   function viewStart() {
-    return '<section class="panel"><h2>' + esc(t('startHeading')) + '</h2><p>' + esc(t('startBody')) + '</p>' +
+    var mode = '<div class="mode" role="group" aria-label="' + esc(t('modeLabel')) + '"><span class="lbl">' + esc(t('modeLabel')) + '</span>' +
+      '<div class="view-toggle">' +
+      '<button type="button" data-action="mode" data-mode="two" aria-pressed="' + !season() + '">' + esc(t('modeTwo')) + '</button>' +
+      '<button type="button" data-action="mode" data-mode="season" aria-pressed="' + season() + '">' + esc(t('modeSeason')) + '</button></div></div>';
+    return '<section class="panel">' + mode + '<h2>' + esc(t(season() ? 'seasonStartHeading' : 'startHeading')) + '</h2><p>' + esc(t(season() ? 'seasonStartBody' : 'startBody')) + '</p>' +
       '<div class="frame">' +
       '<div><b>' + esc(t('frameLearn')) + '</b><span>' + esc(t('frameLearnWhen')) + '</span></div>' +
       '<div class="recall"><b>' + esc(t('frameRecall')) + '</b><span>' + esc(t('frameRecallWhen')) + '</span></div>' +
@@ -86,7 +103,7 @@
       why('whyStart') +
       '<label class="field" for="start">' + esc(t('startDate')) +
       '<input type="date" id="start" data-field="start" value="' + esc(state.start) + '">' +
-      '<span class="hint">' + esc(t('startDateHint')) + '</span></label>' +
+      '<span class="hint">' + esc(t(season() ? 'seasonStartDateHint' : 'startDateHint')) + '</span></label>' +
       (ui.flash ? '<p class="note">' + esc(ui.flash) + '</p>' : '') +
       '<div class="row"><button type="button" class="btn" data-action="example">' + esc(t('loadExample')) + '</button>' +
       (ui.confirmReset
@@ -108,12 +125,13 @@
       }).join('') + '</div>';
     }
     return '<section class="panel"><h2>' + esc(t('classesHeading')) + '</h2><p>' + esc(t('classesBody')) + '</p>' +
-      '<p class="muted small">' + esc(t('classesRepeat')) + '</p>' +
+      '<p class="muted small">' + esc(t(season() ? 'seasonClassesRepeat' : 'classesRepeat')) + '</p>' +
       '<div class="tt"><div class="tt-head"><span></span><span>' + esc(t('slot_m')) + '</span><span>' + esc(t('slot_a')) +
       '</span><span>' + esc(t('slot_e')) + '</span></div>' + rows + '</div></section>';
   }
 
   function chosen() {
+    if (season()) return S.uniqueSubjects(state.target.subjects);
     var all = S.subjectsInTimetable(state.timetable).map(S.subjectKey);
     return state.priority.filter(function (s) { return all.indexOf(S.subjectKey(s)) >= 0; });
   }
@@ -168,6 +186,10 @@
   function viewOff() {
     var cells = '';
     var monday = S.mondayOf(state.start), first = S.dayDiff(monday, state.start), end = first + S.HORIZON;
+    if (season()) {
+      var per = S.buildSeason(state).period;
+      end = first + (per ? S.dayDiff(state.start, per.to) + 1 : S.HORIZON);
+    }
     for (var i = 0; i < Math.ceil(end / 7) * 7; i++) {
       var d = S.addDays(monday, i);
       cells += i < first || i >= end
@@ -276,6 +298,143 @@
     return head + body + rename + homework + exp;
   }
 
+  // ---------- exam season ----------
+  function fullDate(iso) { var p = iso.split('-'); return +p[2] + '.' + p[1] + '.' + p[0]; }
+  function stopName(s) {
+    if (s.type === 'other' && s.name) return s.name;
+    return t((s.isTarget ? 'tgType_' : 'msType_') + (s.type || (s.isTarget ? 'national' : 'mock')));
+  }
+  function left(s) {
+    if (s.days < 7) return t('daysLeft', { d: s.days });
+    return s.rest ? t('weeksDaysLeft', { w: s.weeks, d: s.rest }) : t('weeksLeft', { w: s.weeks });
+  }
+  function topicText(periodId, subject) {
+    return ((state.topics[periodId] || {})[S.subjectKey(subject)]) || '';
+  }
+  function seasonOpts(blank) {
+    return { t: t, season: S.buildSeason(state), name: blank ? '' : state.name, fmtDate: fullDate, stopName: stopName, left: left, topics: topicText };
+  }
+  function chip(action, subject, pressed, extra) {
+    return '<button type="button" class="chip-btn" data-action="' + action + '" data-subject="' + esc(subject) + '"' + (extra || '') +
+      ' aria-pressed="' + pressed + '">' + esc(subject) + '</button>';
+  }
+  function hasSubject(list, s) { var k = S.subjectKey(s); return (list || []).some(function (x) { return S.subjectKey(x) === k; }); }
+  function toggleSubject(list, s) {
+    var k = S.subjectKey(s);
+    return hasSubject(list, s) ? list.filter(function (x) { return S.subjectKey(x) !== k; }) : list.concat([s]);
+  }
+
+  function viewExams() {
+    var tg = state.target, sea = S.buildSeason(state);
+    var pool = S.uniqueSubjects(S.subjectsInTimetable(state.timetable).concat(tg.subjects));
+    var tSubs = chosen();
+    function select(attrs, prefix, values, sel) {
+      return '<select ' + attrs + '>' + values.map(function (v) {
+        return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + esc(t(prefix + v)) + '</option>';
+      }).join('') + '</select>';
+    }
+    var tgStatus = !tg.date ? t('targetNoDate') : sea.target.days <= 0 ? t('targetPassed') : left(sea.target);
+    var target = '<div class="exam">' +
+      '<div class="exam-fields">' +
+      '<label class="field" for="tg-type">' + esc(t('targetType')) + select('id="tg-type" data-tg="type"', 'tgType_', ['national', 'session', 'other'], tg.type) + '</label>' +
+      (tg.type === 'other' ? '<label class="field" for="tg-name">' + esc(t('examName')) + '<input type="text" id="tg-name" data-tg="name" value="' + esc(tg.name) +
+        '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
+      '<label class="field" for="tg-date">' + esc(t('examDate')) + '<input type="date" id="tg-date" data-tg="date" min="' + esc(state.start) + '" value="' + esc(tg.date) + '"></label>' +
+      '</div><p class="' + (tg.date && sea.target.days > 0 ? 'muted small' : 'warn') + '">' + esc(tgStatus) + '</p>' +
+      '<p class="label">' + esc(t('targetSubjects')) + '</p><p class="muted small">' + esc(t('targetSubjectsHint')) + '</p>' +
+      (pool.length ? '<div class="chips">' + pool.map(function (s) { return chip('tsub', s, hasSubject(tSubs, s)); }).join('') + '</div>' : '') +
+      '<div class="add-subject"><label class="field" for="tg-add">' + esc(t('addSubjectLabel')) +
+      '<input type="text" id="tg-add" placeholder="' + esc(t('addSubjectPlaceholder')) + '" autocomplete="off"></label>' +
+      '<button type="button" class="btn" data-action="tsub-add">' + esc(t('addSubject')) + '</button></div>' +
+      (tSubs.length > 4 ? '<p class="warn">' + esc(t('subjectsTooMany', { n: tSubs.length })) + '</p>' : '') +
+      '</div>';
+
+    var rows = state.milestones.map(function (m) {
+      var id = esc(m.id);
+      var st = sea.milestones.filter(function (x) { return x.id === m.id; })[0];
+      var status = !m.date ? ['warn', t('msNoDate')]
+        : st.days <= 0 ? ['muted small', t('msPassed')]
+        : sea.target && m.date >= sea.target.date ? ['warn', t('msAfterTarget')]
+        : ['muted small', left(st)];
+      return '<div class="exam">' +
+        '<div class="exam-fields">' +
+        '<label class="field" for="ms-type-' + id + '">' + esc(t('milestoneType')) +
+        select('id="ms-type-' + id + '" data-ms="' + id + '" data-key="type"', 'msType_', ['mock', 'midterm', 'session', 'other'], m.type) + '</label>' +
+        (m.type === 'other' ? '<label class="field" for="ms-name-' + id + '">' + esc(t('examName')) + '<input type="text" id="ms-name-' + id + '" data-ms="' + id +
+          '" data-key="name" value="' + esc(m.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
+        '<label class="field" for="ms-date-' + id + '">' + esc(t('examDate')) + '<input type="date" id="ms-date-' + id + '" data-ms="' + id +
+          '" data-key="date" value="' + esc(m.date) + '"></label>' +
+        '</div><p class="' + status[0] + '">' + esc(status[1]) + '</p>' +
+        '<p class="label">' + esc(t('milestoneSubjects')) + '</p>' +
+        (tSubs.length ? '<div class="chips">' + tSubs.map(function (s) { return chip('msub', s, hasSubject(m.subjects, s), ' data-id="' + id + '"'); }).join('') + '</div>'
+          : '<p class="muted small">' + esc(t('pickTargetFirst')) + '</p>') +
+        '<div><button type="button" class="btn quiet" data-action="remove-ms" data-id="' + id + '">' + esc(t('removeMilestone')) + '</button></div>' +
+        '</div>';
+    }).join('');
+
+    return '<section class="panel"><h2>' + esc(t('examsHeading')) + '</h2><p>' + esc(t('examsBody')) + '</p>' +
+      '<h3>' + esc(t('targetHeading')) + '</h3>' + target + '</section>' +
+      '<section class="panel"><h3>' + esc(t('milestonesHeading')) + '</h3><p>' + esc(t('milestonesBody')) + '</p>' +
+      (rows || '<p class="muted">' + esc(t('milestonesEmpty')) + '</p>') +
+      '<div><button type="button" class="btn" data-action="add-ms">' + esc(t('addMilestone')) + '</button></div></section>';
+  }
+
+  function periodTitle(p) {
+    return t('periodN', { n: p.n }) + ': ' + dm(p.from) + ' – ' + dm(p.to) + ' · ' + stopName(p.stop);
+  }
+
+  function viewTopics() {
+    var sea = S.buildSeason(state);
+    var body = !sea.periods.length || !sea.subjects.length ? '<p class="warn">' + esc(t('needTarget')) + '</p>'
+      : sea.periods.map(function (p) {
+          return '<div class="period"><h3>' + esc(periodTitle(p)) + '</h3>' + sea.subjects.map(function (s) {
+            var id = 'tp-' + p.id + '-' + S.subjectKey(s).replace(/[^\w-]/g, '_');
+            var onExam = hasSubject(p.stop.subjects, s);
+            return '<label class="topic" for="' + esc(id) + '"><span><b>' + esc(s) + '</b>' + (onExam ? ' <span class="tag">' + esc(t('onExam')) + '</span>' : '') + '</span>' +
+              '<input type="text" id="' + esc(id) + '" data-topic="' + esc(p.id) + '|' + esc(S.subjectKey(s)) + '" value="' + esc(topicText(p.id, s)) +
+              '" placeholder="' + esc(t('topicsPlaceholder')) + '" autocomplete="off"></label>';
+          }).join('') + '</div>';
+        }).join('');
+    return '<section class="panel"><h2>' + esc(t('topicsHeading')) + '</h2><p>' + esc(t('topicsBody')) + '</p>' + body + '</section>';
+  }
+
+  function viewMap() {
+    var o = seasonOpts(false), sea = o.season;
+    var head = '<section class="panel"><h2>' + esc(t('mapHeading')) + '</h2>' +
+      (sea.period ? '<p>' + esc(t('nextPeriod', { from: dayLabel(sea.period.from), to: dayLabel(sea.period.to), stop: stopName(sea.period.stop) })) + '</p>'
+        : '<p class="warn">' + esc(t('needTarget')) + '</p>') +
+      (sea.period && sea.period.capped ? '<p class="warn">' + esc(t('periodCapped')) + '</p>' : '') +
+      sea.late.map(function (m) { return '<p class="warn">' + esc(stopName(m) + ' ' + fullDate(m.date) + ': ' + t('msAfterTarget')) + '</p>'; }).join('') +
+      '<div class="row"><div class="view-toggle" role="group">' +
+      '<button type="button" data-action="map-view" data-view="list" aria-pressed="' + (state.mapView !== 'grid') + '">' + esc(t('viewOverview')) + '</button>' +
+      '<button type="button" data-action="map-view" data-view="grid" aria-pressed="' + (state.mapView === 'grid') + '">' + esc(t('viewPage')) + '</button></div></div></section>';
+
+    if (state.mapView === 'grid') return head + '<div class="grid-wrap">' + R.toSVG(R.layoutSeason(o, measure)) + '</div>';
+
+    var timeline = '<section class="panel"><h3>' + esc(t('timelineHeading')) + '</h3><ol class="timeline">' +
+      '<li class="start"><b>' + esc(t('printStart')) + '</b><span>' + esc(dayLabel(sea.start)) + '</span></li>' +
+      sea.stops.map(function (s) {
+        return '<li class="' + (s.isTarget ? 'target' : 'milestone') + '"><b>' + esc(stopName(s)) + '</b><span>' + esc(dayLabel(s.date)) + ' · ' + esc(left(s)) + '</span>' +
+          (s.subjects.length ? '<span class="muted small">' + esc(s.subjects.join(', ')) + '</span>' : '') + '</li>';
+      }).join('') + '</ol></section>';
+
+    var periods = sea.periods.map(function (p) {
+      var rows = sea.subjects.map(function (s) {
+        var tp = topicText(p.id, s);
+        return '<li><span><b>' + esc(s) + '</b>' + (hasSubject(p.stop.subjects, s) ? ' <span class="tag">' + esc(t('onExam')) + '</span>' : '') + '</span>' +
+          '<span class="' + (tp ? '' : 'muted ') + 'small">' + esc(tp || '—') + '</span></li>';
+      }).join('');
+      return '<section class="panel"><h3>' + esc(periodTitle(p)) + '</h3><ul class="topics">' + rows + '</ul></section>';
+    }).join('');
+
+    var cycle = '<section class="panel"><h3>' + esc(t('cycleHeading')) + '</h3><ol class="cycle">' +
+      ['Understand', 'Recall', 'Space', 'Simulate'].map(function (k) {
+        return '<li class="c-' + k.toLowerCase() + '"><b>' + esc(t('cycle' + k)) + '</b><span>' + esc(t('cycle' + k + 'When')) + '</span></li>';
+      }).join('') + '</ol></section>';
+
+    return head + timeline + periods + cycle;
+  }
+
   // ---------- export ----------
   function fontsReady() {
     if (!document.fonts || !document.fonts.load) return Promise.resolve();
@@ -338,11 +497,26 @@
     };
     state.priority = [n.math, n.bio];
     state.tests = [{ id: 't' + Date.now(), subject: n.bio, date: S.addDays(state.start, 8), slot: 'auto' }];
+    if (season()) {
+      // National exams in about 7 months, with 3 mock exams on the way.
+      var subs = [n.geo, n.eng, n.math];
+      state.target = { type: 'national', name: '', date: S.addDays(state.start, 210), subjects: subs };
+      state.milestones = [21, 91, 161].map(function (d, i) {
+        return { id: 'm' + i, type: 'mock', name: '', date: S.addDays(state.start, d), subjects: subs.slice() };
+      });
+      state.topics = { m0: {}, m1: {} };
+      state.topics.m0[S.subjectKey(n.math)] = ka ? 'ფუნქციები, განტოლებები' : 'Functions, Equations';
+      state.topics.m0[S.subjectKey(n.geo)] = ka ? 'ესეს სტრუქტურა' : 'Essay structure';
+      state.topics.m1[S.subjectKey(n.math)] = ka ? 'გეომეტრია' : 'Geometry, Probability';
+      state.tests = [{ id: 't' + Date.now(), subject: n.math, date: S.addDays(state.start, 8), slot: 'auto' }];
+    }
     state.daysOff = [];
     state.lessonNames = {};
     state.done = {};
     ui.flash = t('exampleLoaded');
   }
+
+  function msById(id) { return state.milestones.filter(function (x) { return x.id === id; })[0] || {}; }
 
   // ---------- events ----------
   app.addEventListener('click', function (e) {
@@ -357,7 +531,25 @@
     else if (a === 'example') example();
     else if (a === 'reset') ui.confirmReset = true;
     else if (a === 'reset-no') ui.confirmReset = false;
-    else if (a === 'reset-yes') { var lang = state.lang; state = fresh(); state.lang = lang; ui.confirmReset = false; }
+    else if (a === 'reset-yes') { var lang = state.lang, mode = state.mode; state = fresh(); state.lang = lang; state.mode = mode; ui.confirmReset = false; }
+    else if (a === 'mode') { state.mode = el.getAttribute('data-mode'); ui.flash = ''; }
+    else if (a === 'tsub') state.target.subjects = toggleSubject(state.target.subjects, el.getAttribute('data-subject'));
+    else if (a === 'tsub-add') {
+      var input = document.getElementById('tg-add');
+      S.splitSubjects(input && input.value).forEach(function (x) { if (!hasSubject(state.target.subjects, x)) state.target.subjects.push(x); });
+    }
+    else if (a === 'msub') {
+      var ms = state.milestones.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
+      if (ms) ms.subjects = toggleSubject(ms.subjects, el.getAttribute('data-subject'));
+    }
+    else if (a === 'add-ms') {
+      state.milestones.push({ id: 'm' + Date.now(), type: state.target.type === 'session' ? 'midterm' : 'mock', name: '', date: '', subjects: chosen() });
+    }
+    else if (a === 'remove-ms') {
+      var mid = el.getAttribute('data-id');
+      state.milestones = state.milestones.filter(function (x) { return x.id !== mid; });
+    }
+    else if (a === 'map-view') state.mapView = el.getAttribute('data-view');
     else if (a === 'subject') {
       var s = el.getAttribute('data-subject'), k = S.subjectKey(s);
       var has = state.priority.some(function (x) { return S.subjectKey(x) === k; });
@@ -396,6 +588,14 @@
       if (v) state.lessonNames[el.getAttribute('data-lesson')] = el.value; else delete state.lessonNames[el.getAttribute('data-lesson')];
     } else if (el.getAttribute('data-field') === 'name') {
       state.name = el.value;
+    } else if (el.hasAttribute('data-topic')) {
+      var tp = el.getAttribute('data-topic').split('|');
+      state.topics[tp[0]] = state.topics[tp[0]] || {};
+      if (el.value.trim()) state.topics[tp[0]][tp[1]] = el.value; else delete state.topics[tp[0]][tp[1]];
+    } else if (el.getAttribute('data-tg') === 'name') {
+      state.target.name = el.value;
+    } else if (el.hasAttribute('data-ms') && el.getAttribute('data-key') === 'name') {
+      msById(el.getAttribute('data-ms')).name = el.value;
     } else return;
     save();
   });
@@ -404,6 +604,12 @@
     var el = e.target;
     if (el.getAttribute('data-field') === 'start') {
       if (el.value) state.start = el.value;
+    } else if (el.hasAttribute('data-tg')) {
+      if (el.getAttribute('data-tg') === 'name') return;
+      state.target[el.getAttribute('data-tg')] = el.value;
+    } else if (el.hasAttribute('data-ms')) {
+      if (el.getAttribute('data-key') === 'name') return;
+      msById(el.getAttribute('data-ms'))[el.getAttribute('data-key')] = el.value;
     } else if (el.hasAttribute('data-test')) {
       var x = state.tests.filter(function (q) { return q.id === el.getAttribute('data-test'); })[0];
       if (x) x[el.getAttribute('data-key')] = el.value;

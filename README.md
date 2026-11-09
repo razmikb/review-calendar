@@ -9,7 +9,7 @@ A static page where a student builds a 2-week spaced review calendar, then print
 - `js/render.js`: the printable A4 calendar. One layout is drawn both as SVG (print/PDF) and to a canvas (PNG).
 - `js/app.js`: the step-by-step UI
 - `fonts/`: Noto Sans Georgian (SIL Open Font License, `fonts/OFL.txt`)
-- `test/schedule.test.js`: run with `node test/schedule.test.js`
+- `test/schedule.test.js`, `test/season.test.js`: run with `node test/schedule.test.js` and `node test/season.test.js`
 
 ## Rules as implemented
 1. Start date: today by default, editable. The plan covers 14 days from it. The calendar shows them as whole weeks, Monday to Sunday: 2 weeks when the start is a Monday, otherwise 3 (the print layout gets tighter to fit). Days before the start or after the 14 days are greyed out (no classes, no study).
@@ -21,6 +21,15 @@ A static page where a student builds a 2-week spaced review calendar, then print
 7. Days off = no classes and no study. Reviews on them move to the next study day before the test; if none fits, to the latest study day before.
 8. Over 4 boxes: move boxes holding only 7-day reviews first, then 3-day reviews, to the next study day. Never 1-day, compressed, or test-prep boxes, never earlier, never onto or after the test. If a day is still over 4, it shows a warning. Boxes pushed past the 14 days show a note ("add it when you plan next week").
 9. Reviews go in the first time-of-day slot with no class or test, else evening.
+
+## Exam season mode (in progress: stage 1 of 2)
+A second mode, chosen on the Start step. The 2-week mode is unchanged.
+- Steps: Start → Classes → Exams → Topics → Tests → Days off → Season map. (Stage 2 adds the period calendar.)
+- Exams: a target exam (National exams / University session exams / Other) with date and subjects, plus milestones (Mock exam / Midterm / Session exam / Other) with date and subjects. Students type every date; nothing is hardcoded. Milestone subjects are picked from the target exam's subjects. Only the target exam's subjects get review boxes.
+- Periods: start → each upcoming milestone → target exam. A milestone on or before the start date has passed; one on or after the target exam is ignored (with a warning).
+- The next period to plan in detail runs from the start date to the next milestone (or the target exam), at most 8 weeks.
+- Topics: optional short list per subject per period, saved against the milestone that ends the period.
+- Season map (one A4 landscape page): timeline with weeks left, subjects × periods table (empty cells are ruled for handwriting, "ON EXAM" marks subjects examined at the end of the period), and the 4-step cycle Understand → Recall → Space → Simulate drawn with the calendar's box outlines (dashed, solid, dotted, heavy).
 
 ## Deferred (future versions)
 - Lessons before the start date (e.g. opening the calendar mid-week: what to do with last week's lessons). Version 1 starts with no past lessons.

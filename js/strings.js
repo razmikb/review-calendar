@@ -150,7 +150,93 @@ window.STRINGS = {
 
     // Dates
     weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    weekdaysLong: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    weekdaysLong: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+
+    // ===== Exam season mode =====
+    modeLabel: 'What do you want to plan?',
+    modeTwo: 'Next 2 weeks',
+    modeSeason: 'Exam season',
+
+    // Steps
+    stepExams: 'Exams',
+    stepTopics: 'Topics',
+    stepMap: 'Season map',
+    showSeasonMap: 'Show my season map',
+
+    // Step 1
+    seasonStartHeading: 'Plan your exam season',
+    seasonStartBody: 'Work toward one big exam through smaller ones on the way: mock exams, midterms, session exams. You get a season map from today to the big exam, and a detailed calendar up to your next milestone. When a milestone has passed, come back and plan the next period.',
+    seasonStartDateHint: 'Usually today. The detailed calendar runs from this date to your next milestone (8 weeks at most).',
+    seasonClassesRepeat: 'Enter one normal week. It repeats every week of the period.',
+
+    // Step 3: exams
+    examsHeading: 'Your exams',
+    examsBody: 'Add the big exam you are working toward, then the smaller exams on the way. Type the dates yourself and check them with your school or university.',
+    targetHeading: 'Target exam',
+    targetType: 'Exam',
+    tgType_national: 'National exams',
+    tgType_session: 'University session exams',
+    tgType_other: 'Other',
+    examDate: 'Date',
+    examName: 'Name',
+    examNamePlaceholder: 'e.g. Olympiad',
+    targetSubjects: 'Subjects on this exam',
+    targetSubjectsHint: 'Tap your subjects. Only these get review boxes. Not in your timetable? Add it below.',
+    addSubjectLabel: 'Another subject',
+    addSubjectPlaceholder: 'e.g. Physics',
+    addSubject: 'Add',
+    targetNoDate: 'Add the date of the target exam.',
+    targetPassed: 'This date is on or before the start date.',
+    milestonesHeading: 'Milestones',
+    milestonesBody: 'Mock exams, midterms or session exams before the target exam. Each one ends a period.',
+    milestonesEmpty: 'No milestones. The plan then runs straight to the target exam.',
+    addMilestone: 'Add a milestone',
+    removeMilestone: 'Remove',
+    milestoneType: 'Type',
+    msType_mock: 'Mock exam',
+    msType_midterm: 'Midterm',
+    msType_session: 'Session exam',
+    msType_other: 'Other',
+    milestoneSubjects: 'Subjects on this milestone',
+    msNoDate: 'Add a date.',
+    msPassed: 'Already passed.',
+    msAfterTarget: 'This is on or after the target exam, so it is not used.',
+    pickTargetFirst: 'Choose the subjects of the target exam first.',
+    weeksLeft: '{w} weeks left',
+    weeksDaysLeft: '{w} weeks {d} days left',
+    daysLeft: '{d} days left',
+
+    // Step 4: topics
+    topicsHeading: 'Topics for each period',
+    topicsBody: 'Optional. For each period, write a short list of what you want to cover in each subject, separated by commas. It goes on your season map.',
+    topicsPlaceholder: 'e.g. Functions, Equations',
+    periodN: 'Period {n}',
+    onExam: 'On this exam',
+    needTarget: 'Add the target exam date and its subjects first (Exams step).',
+
+    // Step 7: season map
+    mapHeading: 'Your season map',
+    nextPeriod: 'Next period to plan: {from} – {to}, until {stop}.',
+    periodCapped: 'Your next milestone is more than 8 weeks away. The detailed calendar covers the first 8 weeks; plan again when they end.',
+    viewOverview: 'Overview',
+    viewPage: 'Full page',
+    timelineHeading: 'Timeline',
+    tableHeading: 'Topics for each period',
+    noTopics: 'No topics written yet.',
+    cycleHeading: 'The 4-step cycle',
+    cycleUnderstand: 'Understand',
+    cycleUnderstandWhen: 'Learn it in class and make sense of it.',
+    cycleRecall: 'Recall',
+    cycleRecallWhen: 'Close the book. Write or solve from memory, then check.',
+    cycleSpace: 'Space',
+    cycleSpaceWhen: 'Come back to it after days, then weeks: old topics too.',
+    cycleSimulate: 'Simulate',
+    cycleSimulateWhen: 'Timed practice test, closed book, like the real exam.',
+
+    // Printed season map
+    printSeasonTitle: 'My exam season',
+    printStart: 'Start',
+    printOnExam: 'ON EXAM'
   },
 
   ka: {

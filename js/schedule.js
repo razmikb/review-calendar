@@ -281,8 +281,64 @@
 
   function kindOrder(k) { return { Q: 0, P: 1, C: 2, R1: 3, R3: 4, R7: 5 }[k]; }
 
+  // ---------- exam season ----------
+  var PERIOD_MAX = 56; // the period calendar covers at most 8 weeks
+
+  /** Distinct subject names, keeping the first spelling. */
+  function uniqueSubjects(list) {
+    var seen = {}, out = [];
+    (list || []).forEach(function (s) {
+      s = String(s || '').trim().replace(/\s+/g, ' ');
+      var k = subjectKey(s);
+      if (s && !seen[k]) { seen[k] = true; out.push(s); }
+    });
+    return out;
+  }
+
+  /**
+   * The season overview: target exam, milestones and the periods between them.
+   * state.target = { type, name, date, subjects: [names] }
+   * state.milestones = [{ id, type, name, date, subjects: [names] }]  (subjects outside the target are ignored)
+   * A milestone on or before the start date has passed. Periods: start → each upcoming milestone → target.
+   * `period` is the next one to plan in detail: start → next milestone (or target), at most 8 weeks.
+   */
+  function buildSeason(state) {
+    var start = state.start;
+    var tg = state.target || {};
+    var subjects = uniqueSubjects(tg.subjects);
+    var names = {};
+    subjects.forEach(function (s) { names[subjectKey(s)] = s; });
+    function stop(x, id, isTarget) {
+      var subs = isTarget ? subjects : uniqueSubjects(x.subjects).filter(function (s) { return names[subjectKey(s)]; })
+        .map(function (s) { return names[subjectKey(s)]; });
+      var days = dayDiff(start, x.date);
+      return { id: id, isTarget: isTarget, type: x.type || '', name: String(x.name || '').trim(), date: x.date,
+        subjects: subs, days: days, weeks: Math.floor(days / 7), rest: days % 7 };
+    }
+    var target = tg.date ? stop(tg, 'target', true) : null;
+    var all = (state.milestones || []).filter(function (m) { return m.date; })
+      .map(function (m) { return stop(m, m.id, false); })
+      .sort(function (a, b) { return a.days - b.days; });
+    var past = all.filter(function (m) { return m.days <= 0; });
+    var late = all.filter(function (m) { return m.days > 0 && target && m.date >= target.date; });
+    var upcoming = all.filter(function (m) { return m.days > 0 && (!target || m.date < target.date); });
+    var stops = upcoming.concat(target && target.days > 0 ? [target] : []);
+    var periods = stops.map(function (s, i) {
+      return { id: s.id, n: i + 1, from: i ? stops[i - 1].date : start, to: s.date, stop: s };
+    });
+    var next = stops[0] || null;
+    var period = null;
+    if (next) {
+      var capped = next.days > PERIOD_MAX;
+      period = { from: start, to: capped ? addDays(start, PERIOD_MAX - 1) : next.date, stop: next, capped: capped };
+    }
+    return { start: start, target: target, subjects: subjects, milestones: all, past: past, late: late,
+      stops: stops, periods: periods, period: period };
+  }
+
   return {
-    HORIZON: HORIZON, DAILY_CAP: DAILY_CAP, PRETEST_WEIGHT: PRETEST_WEIGHT, SLOTS: SLOTS,
+    HORIZON: HORIZON, DAILY_CAP: DAILY_CAP, PRETEST_WEIGHT: PRETEST_WEIGHT, SLOTS: SLOTS, PERIOD_MAX: PERIOD_MAX,
+    buildSeason: buildSeason, uniqueSubjects: uniqueSubjects,
     buildPlan: buildPlan, subjectsInTimetable: subjectsInTimetable, splitSubjects: splitSubjects, subjectKey: subjectKey,
     addDays: addDays, dayDiff: dayDiff, weekday: weekday, mondayOf: mondayOf, todayIso: todayIso, parseDate: parseDate
   };
