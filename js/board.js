@@ -585,7 +585,17 @@
           return '<label class="field" for="' + esc(fid) + '">' + esc(x) + '<input type="date" id="' + esc(fid) + '" data-act-change="sdate" data-key="' +
             esc(k(x)) + '" min="' + esc(s.start) + '" value="' + esc(sea.target.dateOf[k(x)]) + '"></label>';
         }).join('') + '</div>' : '') +
-      acts([['close', t('bClose'), 'primary']]), {
+      acts((tg.date || tg.subjects.length ? [['tgremove', t('bRemoveTarget'), 'danger-quiet']] : []).concat([['close', t('bClose'), 'primary']])), {
+        // Removing the exam clears it back to an empty one: subjects, days, mock exams and topics go too (undo brings them back).
+        tgremove: function () {
+          closeSheet();
+          change(function () {
+            var s2 = st();
+            s2.target = { type: 'national', name: '', date: '', subjects: [] };
+            s2.milestones = [];
+            s2.topics = {};
+          }, t('bTargetRemoved'));
+        },
         sdate: function (el) {
           var key = el.getAttribute('data-key'), v = el.value;
           change(function () {
