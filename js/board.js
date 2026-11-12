@@ -266,7 +266,8 @@
     var lessons = [];
     b.parts.forEach(function (p) { p.lessons.forEach(function (id) { if (lessons.indexOf(id) < 0) lessons.push(id); }); });
     var base = b.parts.length > 1 ? t('sesLessons', { n: lessons.length || b.parts.length }) : t('ses_' + b.parts[0].kind);
-    // Which lessons it reviews: their dates (and names), as in print.
+    // Which lessons it reviews, oldest first: their dates (and names), as in print.
+    lessons.sort(function (a, c) { var x = a.split('|')[1], y = c.split('|')[1]; return x < y ? -1 : x > y ? 1 : 0; });
     return lessons.length ? base + ' · ' + lessons.map(A.lessonLabel).join(', ') : base;
   }
 

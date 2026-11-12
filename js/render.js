@@ -226,12 +226,15 @@
       if (k === 'SE') return { type: 'box', label: t('printSortErrors') + ': ' + b.subject };
       if (k === 'CUM') return { type: 'box', cum: true, label: b.subject + ': ' + t('printOldTopics') };
       var prep = b.parts.some(function (p) { return p.kind === 'P'; });
-      var bits = [];
+      var bits = [], ids = [];
       b.parts.forEach(function (p) {
         if (p.kind === 'P') return;
-        if (p.kind === 'Q') { bits.push(t('printBeforeTest')); return; }
-        p.lessons.forEach(function (id) { var l = o.lessonLabel(id); if (bits.indexOf(l) < 0) bits.push(l); });
+        if (p.kind === 'Q') { if (bits.indexOf(t('printBeforeTest')) < 0) bits.push(t('printBeforeTest')); return; }
+        p.lessons.forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
       });
+      // Lessons oldest first (ids are "subject|yyyy-mm-dd").
+      ids.sort(function (a, c) { var x = a.split('|')[1], y = c.split('|')[1]; return x < y ? -1 : x > y ? 1 : 0; });
+      ids.forEach(function (id) { var l = o.lessonLabel(id); if (bits.indexOf(l) < 0) bits.push(l); });
       // Subject first, so test-prep boxes stay readable when the label is cut short (long in Georgian).
       var label = b.subject + (prep ? ': ' + t('printPrep') : '') + (bits.length ? ' · ' + bits.join(', ') : '');
       return { type: 'box', prep: prep, label: label };
