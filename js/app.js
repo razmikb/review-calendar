@@ -24,7 +24,11 @@
   function load() {
     try {
       var s = JSON.parse(localStorage.getItem(KEY));
-      if (s && s.v === 1) return Object.assign(fresh(), s);
+      if (s && s.v === 1) {
+        // Plans saved before milestones became mock exams only.
+        (s.milestones || []).forEach(function (m) { m.type = 'mock'; m.name = ''; });
+        return Object.assign(fresh(), s);
+      }
     } catch (e) { /* storage blocked or empty */ }
     return null;
   }
@@ -184,8 +188,9 @@
   }
   function chosen() { return S.uniqueSubjects(state.target.subjects); }
 
-  // Each exam subject gets its own milestones for the target exam's type, with suggested dates.
-  var DEFAULT_MILESTONES = { national: ['mock', 'mock', 'mock'], session: ['midterm'], other: [] };
+  // Milestones are mock exams only (owner, 2026-11-12): midterms, session exams and other real exams are target exams.
+  // National exams give each exam subject 3 mock exams with suggested dates; the other target types give none.
+  var DEFAULT_MILESTONES = { national: ['mock', 'mock', 'mock'] };
   var msSeq = 0;
   function newMilestone(type, subject) {
     return { id: 'm' + Date.now() + '-' + (msSeq++), type: type, name: '', date: '', subjects: subject ? [subject] : [] };

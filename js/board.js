@@ -566,7 +566,7 @@
     var again = function () { reopen(openTarget); };
     openSheet('<h2 id="sheet-title">' + esc(t('targetHeading')) + '</h2>' +
       '<div class="exam-fields">' +
-      '<label class="field" for="b-tg-type">' + esc(t('targetType')) + selectHtml('b-tg-type', 'tgtype', 'tgType_', ['national', 'session', 'other'], tg.type) + '</label>' +
+      '<label class="field" for="b-tg-type">' + esc(t('targetType')) + selectHtml('b-tg-type', 'tgtype', 'tgType_', ['national', 'midterm', 'session', 'other'], tg.type) + '</label>' +
       (tg.type === 'other' ? '<label class="field" for="b-tg-name">' + esc(t('examName')) + '<input type="text" id="b-tg-name" data-act-change="tgname" value="' +
         esc(tg.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
       '<label class="field" for="b-tg-date">' + esc(t('bFirstExamDay')) + '<input type="date" id="b-tg-date" data-act-change="tgdate" min="' + esc(s.start) + '" value="' + esc(tg.date) + '"></label>' +
@@ -611,9 +611,6 @@
     var again = function () { if (msById(id)) reopen(function () { openMilestone(id); }); else closeSheet(); };
     openSheet('<h2 id="sheet-title">' + esc(stopLabel(id)) + '</h2>' +
       '<div class="exam-fields">' +
-      '<label class="field" for="b-ms-type">' + esc(t('milestoneType')) + selectHtml('b-ms-type', 'mstype', 'msType_', ['mock', 'midterm', 'session', 'other'], m.type) + '</label>' +
-      (m.type === 'other' ? '<label class="field" for="b-ms-name">' + esc(t('examName')) + '<input type="text" id="b-ms-name" data-act-change="msname" value="' +
-        esc(m.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
       '<label class="field" for="b-ms-date">' + esc(t('examDate')) + '<input type="date" id="b-ms-date" data-act-change="msdate" value="' + esc(m.date) + '"></label>' +
       '</div><p class="' + (m.suggested ? 'note' : 'muted small') + '">' + esc(status) + '</p>' +
       '<h3>' + esc(t('milestoneSubjects')) + '</h3>' +
@@ -622,8 +619,6 @@
       }).join('') + '</div>' : '<p class="muted small">' + esc(t('bPickTargetFirst')) + '</p>') +
       '<p class="muted small">' + esc(t(touchUI() ? 'bHoldStop' : 'bDragStop')) + '</p>' +
       acts([['remove', t('bRemoveMilestone'), 'danger-quiet'], ['close', t('bClose'), 'primary']]), {
-        mstype: function (el) { change(function () { m.type = el.value; }); again(); },
-        msname: function (el) { change(function () { m.name = el.value; }); again(); },
         msdate: function (el) { change(function () { m.date = el.value; m.suggested = false; A.suggestDates(); }); again(); },
         msub: function (el) { var q = el.getAttribute('data-subject'); change(function () { m.subjects = toggleSub(m.subjects || [], q); A.suggestDates(); }); again(); },
         remove: function () {
@@ -637,7 +632,7 @@
 
   // A new milestone for one exam subject (its row's "+ Milestone").
   function addMilestone(subject) {
-    var m = A.newMilestone(st().target.type === 'session' ? 'midterm' : 'mock', subject);
+    var m = A.newMilestone('mock', subject);
     change(function () { st().milestones.push(m); A.suggestDates(); });
     openMilestone(m.id);
   }
