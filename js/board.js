@@ -331,7 +331,7 @@
       '<form class="newsub" data-form="add"><label class="sr" for="b-newsub">' + esc(t('bNewSubject')) + '</label>' +
       '<input type="text" id="b-newsub" autocomplete="off" placeholder="' + esc(t(subs.length ? 'bNewSubject' : 'bFirstSubject')) + '"' + (subs.length ? '' : ' autofocus') + '>' +
       '<button class="btn primary" type="submit">' + esc(t('addSubject')) + '</button></form>' +
-      (testOnly ? '' : '<div class="acts"><button type="button" class="btn quiet" data-act="off">' + esc(t('bMarkOff', { day: day(date) })) + '</button></div>');
+      (testOnly ? '' : '<div class="acts"><button type="button" class="btn" data-act="off" aria-label="' + esc(t('bMarkOff', { day: day(date) })) + '">' + esc(t('dayOff')) + '</button></div>');
     function add(name) {
       name = String(name || '').trim().replace(/\s+/g, ' ');
       if (!name) return;
