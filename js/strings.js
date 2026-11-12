@@ -375,7 +375,7 @@ window.STRINGS = {
     bGuideTarget: 'Set your target exam',
     bGuideExamSubjects: 'Choose its subjects',
     bGuideMilestones: 'Add mock exams (if any)',
-    bExamSubjects: 'On the target exam (gets sessions):',
+    bExamSubjects: 'Tap to add an exam and its sessions:',
     bSeasonEmptyTitle: 'Start with your classes.',
     bSeasonEmptyBody: 'Tap an empty slot in the calendar below to add a class. Then set the target exam: its date and which of your subjects are on it. Mock exams go on the timeline.',
     bNeedClass: 'Add at least one class first: the exam subjects come from your classes.',
