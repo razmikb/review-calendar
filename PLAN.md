@@ -145,7 +145,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=31`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=32`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;

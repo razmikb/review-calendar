@@ -230,7 +230,7 @@
             '<span class="sl">' + esc(slotName(sl)) + '</span>';
           (testsOn[d.date] || []).filter(function (x) { return x.slot === sl; }).forEach(function (x) {
             html += '<button type="button" class="chip test' + (x.stop ? ' stop' : '') + '" data-drag="test" data-id="' + esc(x.id) + '"' +
-              (x.stop ? ' data-stop="' + esc(x.stop.id) + '"' : '') + '><span class="tx">' + esc(x.stop ? A.testLabel(x) : t('printTest') + ' · ' + x.subject) + '</span></button>';
+              (x.stop ? ' data-stop="' + esc(x.stop.id) + '" data-subject="' + esc(x.subject || '') + '"' : '') + '><span class="tx">' + esc(x.stop ? A.testLabel(x) : t('printTest') + ' · ' + x.subject) + '</span></button>';
           });
           d.classes.filter(function (c) { return c.slot === sl; }).forEach(function (c) {
             var topic = (st().lessonNames[c.key + '|' + d.date] || '').trim();
@@ -489,10 +489,11 @@
     var s = st(), info = {}, tg = sea.target;
     sea.milestones.forEach(function (m) { info[m.id] = m; });
     function byDate(a, b) { return a.date && b.date ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) : a.date ? -1 : b.date ? 1 : 0; }
-    function card(id, cls, name, sub, extra) {
+    function card(id, cls, name, sub, extra, subj) {
       var off = id === 'target' && !hasSubjects();
       if (off) extra = t('bNeedClassShort');
-      return '<li class="tl-stop ' + cls + '"><button type="button" data-b="' + (id === 'target' ? 'target' : 'ms') + '" data-id="' + esc(id) + '"' + (off ? ' disabled' : '') + '>' +
+      return '<li class="tl-stop ' + cls + '"><button type="button" data-b="' + (id === 'target' ? 'target' : 'ms') + '" data-id="' + esc(id) + '"' +
+        (subj ? ' data-subject="' + esc(subj) + '"' : '') + (off ? ' disabled' : '') + '>' +
         '<b>' + esc(name) + '</b><span>' + esc(sub) + '</span>' + (extra ? '<small>' + esc(extra) + '</small>' : '') + '</button></li>';
     }
     function msCard(m) {
@@ -505,7 +506,7 @@
     function examCard(subj, ts) {
       var date = tg ? tg.dateOf[k(subj)] : '';
       return card('target', 'target', stopLabel('target'), date ? day(date) : t('bNoDate'),
-        ts ? A.left(ts) : tg ? t('targetPassed') : '');
+        ts ? A.left(ts) : tg ? t('targetPassed') : '', subj);
     }
     function topicBtn(stopId, subj) {
       var tx = A.topicText(stopId, subj);
@@ -561,32 +562,66 @@
 
   // The target exam's subjects come from classes, so it can't be set before there is one.
   function hasSubjects() { return S.subjectsInTimetable(st().timetable).length > 0 || st().target.subjects.length > 0; }
-  function openStop(id) { if (id === 'target') openTarget(); else openMilestone(id); }
+  function openStop(id, subject) { if (id === 'target') openTarget(subject); else openMilestone(id); }
 
-  function openTarget() {
+  // The exam pop-up. Opened from one subject's exam (its timeline card or calendar chip) it shows that subject's
+  // exam only, and "Remove" removes just that one. Opened without a subject (the banner, the empty row) it shows them all.
+  function openTarget(subject) {
     var s = st(), tg = s.target, sea = A.buildSeason();
+    var one = subject && hasSub(tg.subjects, subject) ? subject : '';
     var pool = S.uniqueSubjects(S.subjectsInTimetable(s.timetable).concat(tg.subjects));
-    var status = !tg.date ? t('targetNoDate') : sea.target.days <= 0 ? t('targetPassed') : A.left(sea.target);
-    var again = function () { reopen(openTarget); };
-    openSheet('<h2 id="sheet-title">' + esc(t('targetHeading')) + '</h2>' +
-      '<div class="exam-fields">' +
-      '<label class="field" for="b-tg-type">' + esc(t('targetType')) + selectHtml('b-tg-type', 'tgtype', 'tgType_', ['national', 'midterm', 'session', 'other'], tg.type) + '</label>' +
+    var again = function () { reopen(function () { openTarget(one || undefined); }); };
+    var typeField = '<label class="field" for="b-tg-type">' + esc(t('targetType')) + selectHtml('b-tg-type', 'tgtype', 'tgType_', ['national', 'midterm', 'session', 'other'], tg.type) + '</label>' +
       (tg.type === 'other' ? '<label class="field" for="b-tg-name">' + esc(t('examName')) + '<input type="text" id="b-tg-name" data-act-change="tgname" value="' +
-        esc(tg.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
-      '<label class="field" for="b-tg-date">' + esc(t('bFirstExamDay')) + '<input type="date" id="b-tg-date" data-act-change="tgdate" min="' + esc(s.start) + '" value="' + esc(tg.date) + '"></label>' +
-      '</div><p class="' + (tg.date && sea.target.days > 0 ? 'muted small' : 'warn') + '">' + esc(status) + '</p>' +
-      '<h3>' + esc(t('targetSubjects')) + '</h3>' + (pool.length ? '<p class="muted small">' + esc(t('bTargetSubjectsHint')) + '</p>' : '') +
-      (pool.length ? '<div class="chips">' + pool.map(function (x) {
+        esc(tg.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '');
+    function chips(list) {
+      return '<div class="chips">' + list.map(function (x) {
         return '<button type="button" class="chip-btn" data-act="tsub" data-subject="' + esc(x) + '" aria-pressed="' + hasSub(tg.subjects, x) + '">' + esc(x) + '</button>';
-      }).join('') + '</div>' : '<p class="note">' + esc(t('bTargetNoClasses')) + '</p>') +
-      (tg.date && sea.target && sea.subjects.length ? '<h3>' + esc(t('bExamDays')) + '</h3><p class="muted small">' + esc(t('bExamDaysHint')) + '</p>' +
-        '<div class="exam-days">' + sea.subjects.map(function (x) {
-          var fid = 'b-sd-' + k(x).replace(/[^\w-]/g, '_');
-          return '<label class="field" for="' + esc(fid) + '">' + esc(x) + '<input type="date" id="' + esc(fid) + '" data-act-change="sdate" data-key="' +
-            esc(k(x)) + '" min="' + esc(s.start) + '" value="' + esc(sea.target.dateOf[k(x)]) + '"></label>';
-        }).join('') + '</div>' : '') +
-      acts((tg.date || tg.subjects.length ? [['tgremove', t('bRemoveTarget'), 'danger-quiet']] : []).concat([['close', t('bClose'), 'primary']])), {
-        // Removing the exam clears it back to an empty one: subjects, days, mock exams and topics go too (undo brings them back).
+      }).join('') + '</div>';
+    }
+    var body, actsList;
+    if (one) {
+      var key = k(one), tr = sea.tracks.filter(function (x) { return x.key === key; })[0];
+      var stop = tr && tr.stops.filter(function (x) { return x.stop.isTarget; })[0];
+      var date = sea.target ? sea.target.dateOf[key] : tg.date;
+      var status = !date ? t('targetNoDate') : stop ? A.left(stop.stop) : t('targetPassed');
+      var others = pool.filter(function (x) { return !hasSub(tg.subjects, x); });
+      body = '<h2 id="sheet-title">' + esc(one + ' · ' + stopLabel('target')) + '</h2>' +
+        '<div class="exam-fields">' + typeField +
+        '<label class="field" for="b-tg-day">' + esc(t('examDate')) + '<input type="date" id="b-tg-day" data-act-change="' + (tg.date ? 'sdate' : 'tgdate') +
+        '" data-key="' + esc(key) + '" min="' + esc(s.start) + '" value="' + esc(date || '') + '"></label>' +
+        '</div><p class="' + (stop ? 'muted small' : 'warn') + '">' + esc(status) + '</p>' +
+        (tg.subjects.length > 1 ? '<p class="muted small">' + esc(t('bExamTypeShared')) + '</p>' : '') +
+        '<h3>' + esc(t('bAddOtherExam')) + '</h3>' +
+        (others.length ? '<p class="muted small">' + esc(t('bAddOtherExamHint')) + '</p>' + chips(others) : '<p class="note">' + esc(t('bAddOtherExamNone')) + '</p>');
+      actsList = [['tsubremove', t('bRemoveSubjectExam', { subject: one }), 'danger-quiet'], ['close', t('bClose'), 'primary']];
+    } else {
+      var status2 = !tg.date ? t('targetNoDate') : sea.target.days <= 0 ? t('targetPassed') : A.left(sea.target);
+      body = '<h2 id="sheet-title">' + esc(t('targetHeading')) + '</h2>' +
+        '<div class="exam-fields">' + typeField +
+        '<label class="field" for="b-tg-date">' + esc(t('bFirstExamDay')) + '<input type="date" id="b-tg-date" data-act-change="tgdate" min="' + esc(s.start) + '" value="' + esc(tg.date) + '"></label>' +
+        '</div><p class="' + (tg.date && sea.target.days > 0 ? 'muted small' : 'warn') + '">' + esc(status2) + '</p>' +
+        '<h3>' + esc(t('targetSubjects')) + '</h3>' + (pool.length ? '<p class="muted small">' + esc(t('bTargetSubjectsHint')) + '</p>' + chips(pool) : '<p class="note">' + esc(t('bTargetNoClasses')) + '</p>') +
+        (tg.date && sea.target && sea.subjects.length ? '<h3>' + esc(t('bExamDays')) + '</h3><p class="muted small">' + esc(t('bExamDaysHint')) + '</p>' +
+          '<div class="exam-days">' + sea.subjects.map(function (x) {
+            var fid = 'b-sd-' + k(x).replace(/[^\w-]/g, '_');
+            return '<label class="field" for="' + esc(fid) + '">' + esc(x) + '<input type="date" id="' + esc(fid) + '" data-act-change="sdate" data-key="' +
+              esc(k(x)) + '" min="' + esc(s.start) + '" value="' + esc(sea.target.dateOf[k(x)]) + '"></label>';
+          }).join('') + '</div>' : '');
+      actsList = (tg.date || tg.subjects.length ? [['tgremove', t(tg.subjects.length > 1 ? 'bRemoveAllExams' : 'bRemoveTarget'), 'danger-quiet']] : [])
+        .concat([['close', t('bClose'), 'primary']]);
+    }
+    openSheet(body + acts(actsList), {
+        // One subject's exam goes: its own mock exams, its exam day and its topics (undo brings them back).
+        tsubremove: function () {
+          closeSheet();
+          change(function () {
+            setPrio(one, false);
+            var tp = st().topics || {};
+            Object.keys(tp).forEach(function (pid) { if (tp[pid]) delete tp[pid][k(one)]; });
+          }, t('bSubjectExamRemoved', { subject: one }));
+        },
+        // Removing every exam clears it back to an empty one: subjects, days, mock exams and topics go too.
         tgremove: function () {
           closeSheet();
           change(function () {
@@ -839,7 +874,7 @@
       if (chip) {
         var kind = chip.getAttribute('data-drag');
         if (kind === 'class') openClass(chip);
-        else if (kind === 'test') { if (chip.hasAttribute('data-stop')) openStop(chip.getAttribute('data-stop')); else openTest(chip); }
+        else if (kind === 'test') { if (chip.hasAttribute('data-stop')) openStop(chip.getAttribute('data-stop'), chip.getAttribute('data-subject')); else openTest(chip); }
         else openSession(chip);
         return;
       }
@@ -864,7 +899,7 @@
         var name = b.getAttribute('data-subject'), on = !isPrio(name);
         change(function () { setPrio(name, on); }, t(on ? 'bPrioOn' : 'bPrioOff', { subject: name }));
       }
-      else if (a === 'target') openStop('target');
+      else if (a === 'target') openStop('target', b.getAttribute('data-subject'));
       else if (a === 'ms') openStop(b.getAttribute('data-id'));
       else if (a === 'topic') openTopic(b.getAttribute('data-id'), b.getAttribute('data-subject'));
       else if (a === 'addms') addMilestone(b.getAttribute('data-subject'));
