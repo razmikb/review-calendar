@@ -512,10 +512,12 @@
         ' aria-label="' + esc(t('bTopicsFor', { subject: subj, stop: stopId === 'target' ? stopLabel('target') : stopLabel(stopId) })) + '">' +
         (tx ? '<span>' + esc(tx) + '</span>' : '<small>' + esc(t('bAddTopics')) + '</small>') + '</button></li>';
     }
-    function row(label, items, subj) {
+    function addBtn(subj) {
+      return '<li class="tl-add"><button type="button" data-b="addms" data-subject="' + esc(subj) + '">' + esc(t('bAddMilestone')) + '</button></li>';
+    }
+    function row(label, items) {
       return '<div class="tl-row"><div class="tl-subj">' + esc(label) + '</div><ol class="tl">' +
         '<li class="tl-start"><b>' + esc(t('printStart')) + '</b><span>' + esc(day(s.start)) + '</span></li>' + items +
-        (subj ? '<li class="tl-add"><button type="button" data-b="addms" data-subject="' + esc(subj) + '">' + esc(t('bAddMilestone')) + '</button></li>' : '') +
         '</ol></div>';
     }
     var html = '';
@@ -532,13 +534,14 @@
       });
       // Not on the way to this exam: no date yet, or on/after the exam day.
       items += mine.filter(function (m) { return !inTrack[m.id] && past.indexOf(m) < 0; }).map(msCard).join('');
-      items += (target ? topicBtn('target', tr.subject) : '') + examCard(tr.subject, target);
-      html += row(tr.subject, items, tr.subject);
+      // "+ Mock exam" comes after the last mock exam, before the run-up to the exam itself.
+      items += addBtn(tr.subject) + (target ? topicBtn('target', tr.subject) : '') + examCard(tr.subject, target);
+      html += row(tr.subject, items);
     });
-    if (!sea.tracks.length) html += row(t('bNoExamSubjects'), examCard('', null), '');
+    if (!sea.tracks.length) html += row(t('bNoExamSubjects'), examCard('', null));
     // Milestones that belong to none of the exam's subjects (their subjects were removed).
     var loose = s.milestones.filter(function (m) { return !sea.subjects.some(function (x) { return hasSub(m.subjects, x); }); });
-    if (loose.length && sea.tracks.length) html += row(t('bNoSubjectRow'), loose.sort(byDate).map(msCard).join(''), '');
+    if (loose.length && sea.tracks.length) html += row(t('bNoSubjectRow'), loose.sort(byDate).map(msCard).join(''));
     return '<section class="season" aria-label="' + esc(t('timelineHeading')) + '">' + html + '</section>';
   }
 
