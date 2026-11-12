@@ -51,7 +51,11 @@
   function dayLabel(iso) { return wd(iso) + ' ' + dm(iso); }
   function fullDate(iso) { var p = iso.split('-'); return +p[2] + '.' + p[1] + '.' + p[0]; }
   function lessonDate(id) { return id.split('|')[1]; }
-  function lessonLabel(id) { return (state.lessonNames[id] || '').trim() || dm(lessonDate(id)); }
+  // A named lesson keeps its date too: "Fractions (12.11)".
+  function lessonLabel(id) {
+    var name = (state.lessonNames[id] || '').trim(), d = dm(lessonDate(id));
+    return name ? name + ' (' + d + ')' : d;
+  }
 
   // ---------- plan ----------
   // Exam season: the period calendar. Until the target exam has a date there is no period yet, so the screen

@@ -81,6 +81,7 @@
     var HH = tight ? 26 : 34, CH = tight ? 20 : 26, rowH = (GH - HH - CH) / 3;
     var headSize = tight ? 13 : 15, cntSize = tight ? 11 : 13, cntY = CH - (tight ? 6 : 8);
     var ih = tight ? 16 : 19, step = tight ? 18 : 22, itemSize = tight ? 12 : 13;
+    var pad = 5, iw = colW - 2 * pad, gapY = step - ih;   // inside a calendar cell
 
     // Title row
     P.header(o.title || t('printTitle'), blank ? '' : o.range, o.name);
@@ -88,11 +89,12 @@
     for (var week = 0; week < weeks; week++) {
       var top = gridTop + week * (GH + gap);
       var x0 = M + LW;
+      var rh = rowHeights(week), ry = [0, rh[0], rh[0] + rh[1]];
       // header + row labels
       rect(M, top, W - 2 * M, GH, { stroke: INK, sw: 1.6 });
       ['m', 'a', 'e'].forEach(function (slot, r) {
-        var y = top + HH + r * rowH;
-        text(M + LW / 2 + 5, y + rowH / 2, t('slot_' + slot), { size: tight ? 12 : 13, bold: true, anchor: 'middle', rot: -90 });
+        var y = top + HH + ry[r];
+        text(M + LW / 2 + 5, y + rh[r] / 2, t('slot_' + slot), { size: tight ? 12 : 13, bold: true, anchor: 'middle', rot: -90 });
       });
       text(M + LW / 2, top + HH + 3 * rowH + cntY, t('printBoxes'), { size: tight ? 10 : 11, anchor: 'middle', fill: GREY });
 
@@ -110,48 +112,110 @@
         } else {
           text(cx + colW / 2, top + HH + 3 * rowH + cntY, '___ / 4', { size: cntSize, anchor: 'middle', fill: GREY });
         }
-        if (day && !day.off) ['m', 'a', 'e'].forEach(function (slot, r) { drawCell(day, slot, cx, top + HH + r * rowH); });
+        if (day && !day.off) ['m', 'a', 'e'].forEach(function (slot, r) { drawCell(day, slot, cx, top + HH + ry[r], rh[r]); });
       }
       // grid lines
       line(M + LW, top, M + LW, top + GH, { stroke: INK, sw: 1.2 });
       for (c = 1; c < 7; c++) line(x0 + c * colW, top, x0 + c * colW, top + GH, { stroke: GREY, sw: 0.8 });
       line(M, top + HH, W - M, top + HH, { stroke: INK, sw: 1.2 });
-      for (var r = 1; r < 3; r++) line(M, top + HH + r * rowH, W - M, top + HH + r * rowH, { stroke: GREY, sw: 0.8 });
+      for (var r = 1; r < 3; r++) line(M, top + HH + ry[r], W - M, top + HH + ry[r], { stroke: GREY, sw: 0.8 });
       line(M, top + HH + 3 * rowH, W - M, top + HH + 3 * rowH, { stroke: INK, sw: 1.2 });
     }
 
-    function drawCell(day, slot, cx, cy) {
+    // Labels wrap onto as many lines as they need (nothing is cut short with …).
+    function textW(it) { return it.type === 'box' ? iw - 14 - (ih - 8) : iw - 10; }
+    function isBold(it) { return it.type === 'test' || !!(it.prep || it.practice); }
+    // A word wider than the box is split into pieces that fit, so it wraps instead of being cut.
+    function breakLong(str, size, b, w) {
+      return String(str).split(' ').map(function (word) {
+        if (measure(word, size, b) <= w) return word;
+        var parts = [], cur = '';
+        for (var i = 0; i < word.length; i++) {
+          if (cur && measure(cur + word[i], size, b) > w) { parts.push(cur); cur = ''; }
+          cur += word[i];
+        }
+        return parts.concat([cur]).join(' ');
+      }).join(' ');
+    }
+    function measureAt(items, size) {
+      var lh = size + 3, pd = ih - itemSize - 3;
+      var rows = items.map(function (it) {
+        var lines = P.wrap(breakLong(it.label, size, isBold(it), textW(it)), size, isBold(it), textW(it), 99);
+        return { it: it, lines: lines, h: lines.length * lh + pd };
+      });
+      var total = rows.reduce(function (a, r) { return a + r.h; }, 0) + gapY * Math.max(0, rows.length - 1);
+      return { size: size, lh: lh, rows: rows, total: total };
+    }
+    function cellItems(day, slot) {
       var items = [];
       var testKeys = {};
       day.tests.forEach(function (tt) { if (tt.slot === slot) { items.push({ type: 'test', label: o.testLabel ? o.testLabel(tt) : t('printTest') + ': ' + tt.subject }); testKeys[tt.key] = true; } });
       day.classes.forEach(function (cl) { if (cl.slot === slot && !testKeys[cl.key]) items.push({ type: 'class', label: cl.subject }); });
       day.boxes.forEach(function (b) { if (b.slot === slot) items.push(boxItem(b)); });
-      var pad = 5, ty = ih - 5;
-      var fitN = Math.floor((rowH - pad) / step);
-      var shown = items.length > fitN ? items.slice(0, fitN - 1) : items;
-      var iw = colW - 2 * pad;
-      shown.forEach(function (it, k) {
-        var x = cx + pad, y = cy + pad + k * step;
+      return items;
+    }
+    // Morning, afternoon and evening share the week's height by what they hold: a full evening gets more room
+    // than an empty morning. Each row keeps at least 60% of an equal share for writing by hand.
+    function rowHeights(week) {
+      var total = 3 * rowH, min = rowH * 0.6;
+      if (!plan) return [rowH, rowH, rowH];
+      var need = ['m', 'a', 'e'].map(function (slot) {
+        var n = 0;
+        for (var c = 0; c < 7; c++) {
+          var day = plan.days[dayOffset + week * 7 + c];
+          if (day && !day.off) n = Math.max(n, measureAt(cellItems(day, slot), itemSize).total + 2 * pad);
+        }
+        return Math.max(min, n);
+      });
+      var sum = need[0] + need[1] + need[2];
+      if (sum <= total) { var extra = (total - sum) / 3; return need.map(function (h) { return h + extra; }); }
+      // Not enough room for everything: keep the minimum and share the rest by need.
+      var over = need.map(function (h) { return h - min; }), oSum = over[0] + over[1] + over[2];
+      return over.map(function (x) { return min + (total - 3 * min) * (oSum ? x / oSum : 1 / 3); });
+    }
+
+    // When a slot is still too full, the font shrinks a little; only if it still does not fit
+    // are the last items folded into "+n more".
+    function drawCell(day, slot, cx, cy, cellH) {
+      var items = cellItems(day, slot), room = cellH - 2 * pad;
+      var lay = null;
+      for (var sz = itemSize; sz >= itemSize - 3; sz--) { lay = measureAt(items, sz); if (lay.total <= room) break; }
+      var shown = lay.rows;
+      if (lay.total > room) {
+        // Keep what fits, leaving a line for "+n more".
+        var used = 0, keep = [];
+        for (var q = 0; q < lay.rows.length; q++) {
+          if (used + lay.rows[q].h > room - lay.lh) break;
+          keep.push(lay.rows[q]); used += lay.rows[q].h + gapY;
+        }
+        shown = keep;
+      }
+      var y = cy + pad;
+      shown.forEach(function (row) {
+        var it = row.it, x = cx + pad, h = row.h, size = lay.size, b = isBold(it);
+        var tx = x + 6, fill;
         if (it.type === 'test') {
-          rect(x, y, iw, ih, { fill: C.test.fill, r: 2 });
-          text(x + 6, y + ty, it.label, { size: itemSize, bold: true, fill: C.test.text, maxW: iw - 10 });
+          rect(x, y, iw, h, { fill: C.test.fill, r: 2 });
+          fill = C.test.text;
         } else if (it.type === 'class') {
-          rect(x, y, iw, ih, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
-          text(x + 6, y + ty, it.label, { size: itemSize, fill: C.cls.text, maxW: iw - 10 });
+          rect(x, y, iw, h, { stroke: C.cls.stroke, sw: 1.2, dash: [4, 3], fill: C.cls.fill, r: 2 });
+          fill = C.cls.text;
         } else {
           // heavy = test prep / practice test, dotted = old topics, solid = every other review
           var c = it.practice ? C.practice : it.cum ? C.cum : it.prep ? C.prep : C.review;
           var heavy = it.prep || it.practice;
           var st = { stroke: c.stroke, sw: heavy ? 3 : it.cum ? 2 : 1.5, fill: c.fill, r: 2 };
           if (it.cum) st.dash = [1.5, 3];
-          rect(x, y, iw, ih, st);
+          rect(x, y, iw, h, st);
           var tb = ih - 8;
           rect(x + 5, y + 4, tb, tb, { stroke: INK, sw: 1.2, fill: WHITE });
-          text(x + 10 + tb, y + ty, it.label, { size: itemSize, bold: heavy, fill: c.text, maxW: iw - 14 - tb });
+          tx = x + 10 + tb; fill = c.text;
         }
+        row.lines.forEach(function (ln, i) { text(tx, y + ih - 5 - (itemSize - size) + i * lay.lh, ln, { size: size, bold: b, fill: fill }); });
+        y += h + gapY;
       });
       if (shown.length < items.length) {
-        text(cx + pad + 2, cy + pad + shown.length * step + ty, t('printMore', { n: items.length - shown.length }), { size: itemSize - 1, bold: true });
+        text(cx + pad + 2, y + lay.lh - 3, t('printMore', { n: items.length - shown.length }), { size: lay.size - 1, bold: true });
       }
     }
 
