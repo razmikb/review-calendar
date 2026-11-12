@@ -566,13 +566,10 @@
         esc(tg.name) + '" placeholder="' + esc(t('examNamePlaceholder')) + '" autocomplete="off"></label>' : '') +
       '<label class="field" for="b-tg-date">' + esc(t('bFirstExamDay')) + '<input type="date" id="b-tg-date" data-act-change="tgdate" min="' + esc(s.start) + '" value="' + esc(tg.date) + '"></label>' +
       '</div><p class="' + (tg.date && sea.target.days > 0 ? 'muted small' : 'warn') + '">' + esc(status) + '</p>' +
-      '<h3>' + esc(t('targetSubjects')) + '</h3><p class="muted small">' + esc(t('bTargetSubjectsHint')) + '</p>' +
+      '<h3>' + esc(t('targetSubjects')) + '</h3>' + (pool.length ? '<p class="muted small">' + esc(t('bTargetSubjectsHint')) + '</p>' : '') +
       (pool.length ? '<div class="chips">' + pool.map(function (x) {
         return '<button type="button" class="chip-btn" data-act="tsub" data-subject="' + esc(x) + '" aria-pressed="' + hasSub(tg.subjects, x) + '">' + esc(x) + '</button>';
-      }).join('') + '</div>' : '') +
-      '<form class="newsub" data-form="tsubadd"><label class="sr" for="b-tg-add">' + esc(t('addSubjectLabel')) + '</label>' +
-      '<input type="text" id="b-tg-add" autocomplete="off" placeholder="' + esc(t('addSubjectPlaceholder')) + '">' +
-      '<button class="btn" type="submit">' + esc(t('addSubject')) + '</button></form>' +
+      }).join('') + '</div>' : '<p class="note">' + esc(t('bTargetNoClasses')) + '</p>') +
       (tg.date && sea.target && sea.subjects.length ? '<h3>' + esc(t('bExamDays')) + '</h3><p class="muted small">' + esc(t('bExamDaysHint')) + '</p>' +
         '<div class="exam-days">' + sea.subjects.map(function (x) {
           var fid = 'b-sd-' + k(x).replace(/[^\w-]/g, '_');
@@ -593,12 +590,6 @@
         tgname: function (el) { change(function () { tg.name = el.value; }); again(); },
         tgdate: function (el) { if (!el.value) return; change(function () { tg.date = el.value; A.suggestDates(); }); again(); },
         tsub: function (el) { var x = el.getAttribute('data-subject'); change(function () { setPrio(x, !hasSub(tg.subjects, x)); }); again(); },
-        tsubadd: function (form) {
-          var list = S.splitSubjects(form.querySelector('input').value);
-          if (!list.length) return;
-          change(function () { list.forEach(function (x) { setPrio(x, true); }); });
-          again();
-        },
         close: function () { closeSheet(); }
       });
   }

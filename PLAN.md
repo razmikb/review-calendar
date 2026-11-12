@@ -99,6 +99,8 @@ with sessions appearing as classes and tests are added. Decisions so far:
      The printed season map is now one row per exam on a shared date scale (topics above the line, ruled lines when empty);
      the old subjects × periods table is gone. The global "periods" still decide the calendar's range (up to the next
      milestone of any subject). Test added in `test/season.test.js`.
+- **Owner (2026-11-12):** exam subjects come only from classes. The target sheet no longer has an "Add subject" field;
+  its chips are the timetable subjects (plus any already chosen). With no classes it says to add classes in the calendar first.
 - **Next:** owner tests both modes on a phone; translate the new strings (`b…`, `ses_…`); remove the unused step strings.
 
 ## Verified so far
@@ -127,7 +129,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=17`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=18`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;
