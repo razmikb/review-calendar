@@ -109,6 +109,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   session, other). A university student plans toward the midterm first, then sets the session exam as the target after it.
   Only national exams add milestones automatically (3 mock exams per subject). Saved plans: every milestone becomes a mock
   exam on load (custom names dropped). `schedule.js` is unchanged and still handles the other milestone types (tests use them).
+- **Default start date (2026-11-12):** Monday of the current week (new plans and "Start over"); saved plans keep theirs.
 - **Theme toggle (2026-11-12):** light / dark / auto buttons in the header, next to the language. Saved under its own
   localStorage key `charte-theme` (not in the plan state, so "Start over" keeps it); an inline script in `index.html` applies
   it before the first paint. Print and PNG stay light.
@@ -140,7 +141,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=24`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=25`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;

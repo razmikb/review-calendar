@@ -14,7 +14,8 @@
   function fresh() {
     var tt = {};
     for (var w = 0; w < 7; w++) tt[w] = { m: '', a: '', e: '' };
-    return { v: 1, lang: 'ka', start: S.todayIso(), timetable: tt, priority: [], tests: [], daysOff: [],
+    // The plan starts on Monday of the current week, so the calendar opens on a whole week.
+    return { v: 1, lang: 'ka', start: S.mondayOf(S.todayIso()), timetable: tt, priority: [], tests: [], daysOff: [],
       lessonNames: {}, done: {}, name: '',
       // sessions the student moved ({ id: { date, slot } }) and the "Move sessions" switch
       moved: {}, advanced: false,
