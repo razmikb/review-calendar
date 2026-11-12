@@ -168,9 +168,8 @@
         if (p.kind === 'Q') { bits.push(t('printBeforeTest')); return; }
         p.lessons.forEach(function (id) { var l = o.lessonLabel(id); if (bits.indexOf(l) < 0) bits.push(l); });
       });
-      // Exam season: subject first, so several test-prep boxes on one day stay readable when cut short.
-      var label = prep && o.season ? b.subject + ': ' + t('printPrep') + (bits.length ? ' · ' + bits.join(', ') : '')
-        : (prep ? t('printPrep') + ': ' : '') + b.subject + (bits.length ? ' · ' + bits.join(', ') : '');
+      // Subject first, so test-prep boxes stay readable when the label is cut short (long in Georgian).
+      var label = b.subject + (prep ? ': ' + t('printPrep') : '') + (bits.length ? ' · ' + bits.join(', ') : '');
       return { type: 'box', prep: prep, label: label };
     }
 

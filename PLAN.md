@@ -34,8 +34,7 @@ Way of working: 2 stages, show the owner each one.
 2. Owner translates the new `en` strings (exam season section of `js/strings.js`) to `ka`.
 3. Test on a real iPhone (Safari): sharing several PNGs at once, canvas size, print to PDF.
 4. Then merge `claude/epic-cori-aiec12` into `main` (the live site) once the owner approves.
-5. Open question for the owner: the 2-week "Test prep: <Subject>" label is cut before the subject in Georgian
-   (exam season already puts the subject first); change it there too?
+5. Done (2026-11-12): the 2-week printed test-prep label now puts the subject first, like exam season
 
 ## Calendar-first UI (decided 2026-11-10; both modes built on branch `claude/calendar-first`)
 Owner wants to replace the step-by-step forms with one screen: a blank calendar the student edits directly,
@@ -128,7 +127,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=12`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=17`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;
