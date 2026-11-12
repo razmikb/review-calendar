@@ -398,6 +398,7 @@ details.how summary h3 { display: inline; }
 .tl-stop.target small { color: inherit; opacity: 0.85; }
 .tl-stop.nodate button { border-style: dashed; border-color: var(--line-strong); }
 .tl-stop.past button, .tl-stop.late button { border-color: var(--line-strong); opacity: 0.65; }
+.tl-stop button:disabled { opacity: 0.45; cursor: default; }
 .tl-topic button { border: 1.5px dashed var(--line-strong); background: none; min-width: 70px; max-width: 150px; }
 .tl-topic button span { font-size: 0.8rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tl-add button { border: 1.5px dashed var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; min-width: 0; }

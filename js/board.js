@@ -147,8 +147,9 @@
     if (sea) {
       var miss = A.missing(sea);
       if (!s.target.date && !hasClass) banner += '<div class="b-hint"><p><b>' + esc(t('bSeasonEmptyTitle')) + '</b> ' + esc(t('bSeasonEmptyBody')) + '</p>' +
-        '<button type="button" class="btn primary" data-b="target">' + esc(t('bSetTarget')) + '</button>' +
-        '<button type="button" class="btn" data-b="example">' + esc(t('loadExample')) + '</button></div>';
+        '<button type="button" class="btn primary" data-b="target"' + (hasSubjects() ? '' : ' disabled aria-describedby="b-need-class"') + '>' + esc(t('bSetTarget')) + '</button>' +
+        '<button type="button" class="btn" data-b="example">' + esc(t('loadExample')) + '</button>' +
+        '<p class="muted small" id="b-need-class">' + esc(t('bNeedClass')) + '</p></div>';
       else if (miss) banner += '<p class="warn">' + esc(t(miss)) + '</p>';
       if (miss) banner += '<p class="muted small">' + esc(t('bSeasonNoPeriod')) + '</p>';
     } else if (!hasClass && !s.tests.length) banner += '<div class="b-hint"><p><b>' + esc(t('bEmptyTitle')) + '</b> ' + esc(t('bEmptyBody')) + '</p>' +
@@ -488,7 +489,9 @@
     sea.milestones.forEach(function (m) { info[m.id] = m; });
     function byDate(a, b) { return a.date && b.date ? (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) : a.date ? -1 : b.date ? 1 : 0; }
     function card(id, cls, name, sub, extra) {
-      return '<li class="tl-stop ' + cls + '"><button type="button" data-b="' + (id === 'target' ? 'target' : 'ms') + '" data-id="' + esc(id) + '">' +
+      var off = id === 'target' && !hasSubjects();
+      if (off) extra = t('bNeedClassShort');
+      return '<li class="tl-stop ' + cls + '"><button type="button" data-b="' + (id === 'target' ? 'target' : 'ms') + '" data-id="' + esc(id) + '"' + (off ? ' disabled' : '') + '>' +
         '<b>' + esc(name) + '</b><span>' + esc(sub) + '</span>' + (extra ? '<small>' + esc(extra) + '</small>' : '') + '</button></li>';
     }
     function msCard(m) {
@@ -552,6 +555,8 @@
     }).join('') + '</select>';
   }
 
+  // The target exam's subjects come from classes, so it can't be set before there is one.
+  function hasSubjects() { return S.subjectsInTimetable(st().timetable).length > 0 || st().target.subjects.length > 0; }
   function openStop(id) { if (id === 'target') openTarget(); else openMilestone(id); }
 
   function openTarget() {
