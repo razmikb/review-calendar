@@ -10,6 +10,10 @@ window.STRINGS = {
     appTitle: 'Review calendar',
     tagline: 'Read to learn. Recall to keep. Reread to fix.',
     langLabel: 'Language',
+    themeLabel: 'Theme',
+    theme_light: 'Light',
+    theme_dark: 'Dark',
+    theme_auto: 'Auto (follow the device)',
 
     // Steps
     step1: 'Start',

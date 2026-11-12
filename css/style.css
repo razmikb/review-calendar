@@ -87,6 +87,7 @@ body {
 .top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 .brand h1 { margin: 0; font-size: 1.5rem; line-height: 1.2; text-wrap: balance; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.95rem; }
+.prefs { display: flex; flex-wrap: wrap; gap: 8px; }
 .lang { display: flex; gap: 4px; }
 .lang button { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
 .lang button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }

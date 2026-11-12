@@ -91,9 +91,28 @@
   // ---------- page ----------
   function header() {
     return '<header class="top"><div class="brand"><h1>' + esc(t('appTitle')) + '</h1><p>' + esc(t('tagline')) + '</p></div>' +
+      '<div class="prefs"><div class="lang" role="group" aria-label="' + esc(t('themeLabel')) + '">' +
+      [['light', '☀'], ['dark', '☾'], ['auto', '◐']].map(function (x) {
+        var name = t('theme_' + x[0]);
+        return '<button type="button" data-action="theme" data-theme="' + x[0] + '" aria-pressed="' + (theme === x[0]) + '" aria-label="' + esc(name) +
+          '" title="' + esc(name) + '"><span aria-hidden="true">' + x[1] + '</span></button>';
+      }).join('') + '</div>' +
       '<div class="lang" role="group" aria-label="' + esc(t('langLabel')) + '">' +
       '<button type="button" data-action="lang" data-lang="ka" aria-pressed="' + (state.lang === 'ka') + '">ქართ</button>' +
-      '<button type="button" data-action="lang" data-lang="en" aria-pressed="' + (state.lang === 'en') + '">EN</button></div></header>';
+      '<button type="button" data-action="lang" data-lang="en" aria-pressed="' + (state.lang === 'en') + '">EN</button></div></div></header>';
+  }
+
+  // ---------- theme ----------
+  // Light, dark or auto (follow the device). A display preference, kept apart from the plan so "Start over" keeps it.
+  // index.html applies it before the first paint.
+  var THEME_KEY = 'charte-theme';
+  var theme = 'auto';
+  try { theme = localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { /* storage blocked */ }
+  function setTheme(v) {
+    theme = v;
+    if (v === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', v);
+    try { if (v === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, v); } catch (e) { /* ignore */ }
   }
   function render() {
     document.documentElement.lang = state.lang;
@@ -341,6 +360,7 @@
     if (!el) return;
     var a = el.getAttribute('data-action');
     if (a === 'lang') state.lang = el.getAttribute('data-lang');
+    else if (a === 'theme') setTheme(el.getAttribute('data-theme'));
     else if (a === 'mode') {
       state.mode = el.getAttribute('data-mode');
       if (season() && !state.milestones.length && !state.target.date) defaultMilestones();
