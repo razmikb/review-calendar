@@ -103,6 +103,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   its chips are the timetable subjects (plus any already chosen). With no classes it says to add classes in the calendar first.
   The "Set target exam" button and the timeline's target exam card are disabled until there is a class subject
   (or a subject already on the target); the empty-state banner now says "Start with your classes".
+  The exam season guide steps now start with "Add your classes", then target exam, its subjects, milestones, days off.
 - **Theme toggle (2026-11-12):** light / dark / auto buttons in the header, next to the language. Saved under its own
   localStorage key `charte-theme` (not in the plan state, so "Start over" keeps it); an inline script in `index.html` applies
   it before the first paint. Print and PNG stay light.
@@ -134,7 +135,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=20`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=21`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;

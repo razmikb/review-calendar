@@ -130,7 +130,7 @@
       '</div>';
 
     var guide = sea
-      ? [[!!(sea.target && sea.target.days > 0), 'bGuideTarget'], [chosen.length > 0, 'bGuideExamSubjects'], [hasClass, 'bGuideClasses'],
+      ? [[hasClass, 'bGuideClasses'], [!!(sea.target && sea.target.days > 0), 'bGuideTarget'], [chosen.length > 0, 'bGuideExamSubjects'],
         [s.milestones.length > 0, 'bGuideMilestones'], [s.daysOff.length > 0, 'bGuideOff']]
       : [[hasClass, 'bGuideClasses'], [chosen.length > 0, 'bGuideSubjects'], [s.tests.length > 0, 'bGuideTests'], [s.daysOff.length > 0, 'bGuideOff']];
     var guideHtml = '<ol class="guide">' + guide.map(function (g, i) {
