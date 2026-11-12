@@ -113,7 +113,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
 - **Print/PNG labels (2026-11-12):** box labels wrap onto as many lines as needed (no "…"); a word wider than the box is
   split. Each week's morning/afternoon/evening rows share the height by what they hold (at least 60% of an equal share);
   if a slot still overflows, the font shrinks up to 3px, then "+n more" as before. A named lesson shows its date too:
-  "Fractions (12.11)", in print and on screen. This intentionally changes the 2-week drawing operations.
+  "12.11 · Fractions", in print and on screen; on screen every session shows its lessons' dates. This intentionally changes the 2-week drawing operations.
 - **Theme toggle (2026-11-12):** light / dark / auto buttons in the header, next to the language. Saved under its own
   localStorage key `charte-theme` (not in the plan state, so "Start over" keeps it); an inline script in `index.html` applies
   it before the first paint. Print and PNG stay light.
@@ -145,7 +145,7 @@ with sessions appearing as classes and tests are added. Decisions so far:
   `topics {periodId: {subjectKey: text}}`, `mapView`. Period id = the id of the milestone that ends it, or `'target'`.
   In exam mode `chosen()` returns the target exam's subjects (they replace the 2-week "priority" subjects).
 - `js/strings.js`: new keys in the "Exam season mode" section of `en`. Not translated yet.
-- Bump `?v=` in `index.html` after changing css/js (now `v=27`).
+- Bump `?v=` in `index.html` after changing css/js (now `v=28`).
 - Stage 2 code: `Schedule.buildPeriod(state)` → the shared `plan(state, cfg)` (`buildPlan` = `plan(state, null)`, unchanged rules).
   New part kinds: R21, PT (practice test), FX (fix errors), SE (sort errors), CUM (old topics); the last four are `solo` (never merged).
   Milestones/target are tests with `test.stop`. `Render.layout` takes `o.page`, `o.season`, `o.title`, `o.testLabel`;

@@ -51,10 +51,10 @@
   function dayLabel(iso) { return wd(iso) + ' ' + dm(iso); }
   function fullDate(iso) { var p = iso.split('-'); return +p[2] + '.' + p[1] + '.' + p[0]; }
   function lessonDate(id) { return id.split('|')[1]; }
-  // A named lesson keeps its date too: "Fractions (12.11)".
+  // The lesson's date, then its name if it has one: "12.11 · Fractions".
   function lessonLabel(id) {
     var name = (state.lessonNames[id] || '').trim(), d = dm(lessonDate(id));
-    return name ? name + ' (' + d + ')' : d;
+    return name ? d + ' · ' + name : d;
   }
 
   // ---------- plan ----------
@@ -389,7 +389,7 @@
 
   Board.init({
     root: app, getState: function () { return state; }, setState: function (s) { state = Object.assign(fresh(), s); },
-    t: t, esc: esc, dayLabel: dayLabel, wd: wd, dm: dm, fullDate: fullDate, save: save, render: render, plan: plan,
+    t: t, esc: esc, lessonLabel: lessonLabel, dayLabel: dayLabel, wd: wd, dm: dm, fullDate: fullDate, save: save, render: render, plan: plan,
     explain: explain, noteText: noteText, why: why, exportPanel: exportPanel, pageCount: pageCount, example: example,
     season: season, buildSeason: function () { return S.buildSeason(state); }, stopName: stopName, left: left, testLabel: testLabel,
     topicText: topicText, chosen: chosen, defaultMilestones: defaultMilestones, suggestDates: suggestDates, missing: missing,

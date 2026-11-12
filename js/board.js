@@ -266,8 +266,8 @@
     var lessons = [];
     b.parts.forEach(function (p) { p.lessons.forEach(function (id) { if (lessons.indexOf(id) < 0) lessons.push(id); }); });
     var base = b.parts.length > 1 ? t('sesLessons', { n: lessons.length || b.parts.length }) : t('ses_' + b.parts[0].kind);
-    var topic = lessons.length === 1 ? (st().lessonNames[lessons[0]] || '').trim() : '';
-    return topic ? base + ' · ' + topic + ' (' + A.dm(lessons[0].split('|')[1]) + ')' : base;
+    // Which lessons it reviews: their dates (and names), as in print.
+    return lessons.length ? base + ' · ' + lessons.map(A.lessonLabel).join(', ') : base;
   }
 
   // Tests outside the calendar still shape the sessions before them: list them so they can be removed.
